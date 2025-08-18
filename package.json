@@ -1,0 +1,31 @@
+{
+  "name": "rc_uniproject",
+  "version": "1.0.0",
+  "description": "Gestionale sito per esposizioni",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FrancoLeuci/RC_UniProject.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/FrancoLeuci/RC_UniProject/issues"
+  },
+  "homepage": "https://github.com/FrancoLeuci/RC_UniProject#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.17.1",
+    "nodemailer": "^7.0.5",
+    "validator": "^13.15.15"
+  }
+}
