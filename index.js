@@ -1,15 +1,19 @@
-const express = require('express')
-require('dotenv').config()
+const express = require('express');
+require('dotenv').config();
 
-const userRouter = require('./routes/authRoutes')
+const dbCon = require('./controller/DBcontroller');
+const authRoutes = require('./routes/authRoutes');
 
-const app = express()
+const app = express();
 
-app.use(express.json())
+const Port = process.env.PORT || 5000;
 
-app.use('/api/users', userRouter)
+app.use(express.json());
 
-const PORT = process.env.PORT || 3001
-app.listen(PORT, () => {
-    console.log(`Listening on http://localhost:${PORT}`)
+app.use("/api/auth", authRoutes);
+
+dbCon().then(()=>{
+    app.listen(Port, ()=>{
+        console.log(`Server is running on: http://localhost:${Port}`)
+    })
 })

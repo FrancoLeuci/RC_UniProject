@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
         unique: true,
         lowercase: true
     },
+    verified: { //flag per verifica dell'email
+        type: Boolean,
+        default: false
+    },
     approved: {
         type: Boolean,
         default: false
