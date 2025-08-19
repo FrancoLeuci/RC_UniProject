@@ -3,33 +3,60 @@ const nodemailer = require('nodemailer');
 const {google} = require('googleapis');
 require('dotenv').config();
 
+//TODO: LUCIA RICORDA DI DISATTIVARE AVG DEL CAZZO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+async function emailSender (email, id){
+    try{
+        // metodo della libreria googleapis per creare un client oAuth2 autorizzato
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.CLIENT_ID,
+            process.env.CLIENT_S,
+            process.env.REDIRECT_URI
+        );
+
+        // metodo per impostare le credenziale di autorizzazione
+        oAuth2Client.setCredentials({
+            refresh_token: process.env.OAUTH_REFRESH_TOKEN
+        })
+
+        const accessToken = await oAuth2Client.getAccessToken();
+        console.log(accessToken);
+
+        // metodo per creare un oggetto Transport per l'invio dell'email
+        const emailTransporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                type: 'OAuth2',
+                user: process.env.EMAIL_USER,
+                clientId: process.env.CLIENT_ID,
+                clientSecret: process.env.CLIENT_S,
+                refreshToken: process.env.OAUTH_REFRESH_TOKEN,
+                accessToken: accessToken
+            },
+        })
+
+        // URL usato dal client per verificare l'account
+        const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/verification/${id}`;
+        console.log(verificationUrl)
+
+        // oggetto in cui è descritta l'email che verrà inviata al client
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'RC-uni - account verify',
+            html: `Please click the link to verify your email: <a href="${verificationUrl}">${verificationUrl}</a>`,
+        }
+
+        console.log(await emailTransporter.sendMail(mailOptions))
+
+        return await emailTransporter.sendMail(mailOptions)
+    }catch(err){
+        console.error("Failed to send email, retry", err.message);
+    }
+}
+
 async function register(req, res){
     const {surname,name,email,password,hide}=req.body;
-
-    const oAuth2Client = new google.auth.OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_S,
-        process.env.REDIRECT_URI
-    );
-
-    oAuth2Client.setCredentials({
-        refresh_token: process.env.OAUTH_REFRESH_TOKEN
-    })
-
-    const accessToken = await oAuth2Client.getAccessToken();
-    console.log(accessToken);
-
-    const emailTransporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            type: 'OAuth2',
-            user: process.env.EMAIL_USER,
-            clientId: process.env.CLIENT_ID,
-            clientSecret: process.env.CLIENT_S,
-            refreshToken: process.env.OAUTH_REFRESH_TOKEN,
-            accessToken: accessToken.token
-        },
-    })
 
     try{
         const user=await User.create({
@@ -39,51 +66,81 @@ async function register(req, res){
             password,
             hide
         })
-        console.log("Utente creato");
-        console.log(user)
+        console.log("Utente creato", user);
 
-        const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/verification/${user._id}`;
-        console.log(verificationUrl)
-
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: user.email,
-            subject: 'Verify your email',
-            html: `Please click to verify your email: <a href="${verificationUrl}">${verificationUrl}</a>`,
-        }
-
-        await emailTransporter.sendMail(mailOptions)
+        await emailSender(user.email, user._id)
 
         res.send("Email successfully sent")
     } catch (err) {
         console.error(err.message);
-        res.status(500).send("Failed to send email")
+        res.status(500).send("Internal Server Error")
     }
 }
 
-async function test(req, res){
-    const id = req.params.id
+async function accountVerify(req, res){
+    const id = req.params.id //TODO: modificare col token
     console.log(req.params)
+
     try{
+        // verifica che l'utente esista nel DB
         const user = await User.findById(id)
         if(!user){
-            return res.status(403).send('Bho');
+            return res.status(404).send('User not found');
         }
 
         //TODO: rimuoverlo dopo che porrò al posto di id il token
         if(user.verified){
-            return res.status(300).send('Account already verified').end();
+            return res.status(403).send('Account already verified');
         }
 
         user.verified = true
-
         await user.save()
 
         res.status(200).send('Account verified');
 
     }catch(err){
         console.log(err.message);
+        res.status(500).send("Internal Server Error")
     }
 }
 
-module.exports = {register, test}
+async function login(req, res){
+    const {email, password} = req.body;
+
+    try{
+        // controllo body della richiesta
+        if(!email){
+            return res.status(400).json({error: 'Email is required'})
+        }
+        if(!password){
+            return res.status(400).json({error: 'Password is required'})
+        }
+
+        const user = await User.findOne({email})
+        if(!user){
+            return res.status(404).json({error: 'User not found'})
+        }
+
+        const valid = await user.comparePassword(password)
+        if(!valid){
+            return res.status(403).json({message: 'Invalid password'})
+        }
+
+        // verifico che l'account sia stato verificato
+        if(!user.verified){
+            return res.status(401).json({message: "Account not verified, please check your email"})
+        }
+
+        //TODO: inserire la generazione dei token
+
+        return res.status(200).json({
+            message: `Successfully logged in: ${user.email}`
+            //TODO: inserire accessToken
+        })
+    }catch(err){
+        console.error(err.message);
+        res.status(500).send("Internal Server Error")
+    }
+}
+
+module.exports = {register, accountVerify, login}
