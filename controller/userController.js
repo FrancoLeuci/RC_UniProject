@@ -1,11 +1,12 @@
 const User = require('../model/User')
 const nodemailer = require('nodemailer');
 const {google} = require('googleapis');
+const crypto = require('crypto');
 require('dotenv').config();
 
 //TODO: LUCIA RICORDA DI DISATTIVARE AVG DEL CAZZO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-async function emailSender (email, id){
+async function emailSender (email, id, resetKey){
     try{
         // metodo della libreria googleapis per creare un client oAuth2 autorizzato
         const oAuth2Client = new google.auth.OAuth2(
@@ -35,21 +36,36 @@ async function emailSender (email, id){
             },
         })
 
-        // URL usato dal client per verificare l'account
-        const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/verification/${id}`;
-        console.log(verificationUrl)
+        console.log(resetKey)
+        if(resetKey===undefined){
+            // URL usato dal client per verificare l'account
+            const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/verification/${id}`;
+            console.log(verificationUrl)
 
-        // oggetto in cui è descritta l'email che verrà inviata al client
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'RC-uni - account verify',
-            html: `Please click the link to verify your email: <a href="${verificationUrl}">${verificationUrl}</a>`,
+            // oggetto in cui è descritta l'email che verrà inviata al client
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'RC-uni - account verify',
+                html: `Please click the link to verify your email: <a href="${verificationUrl}">${verificationUrl}</a>`,
+            }
+
+            return await emailTransporter.sendMail(mailOptions)
+        } else {
+            // URL usato dal client per resettare la password dell'account
+            const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/reset/${resetKey}`;
+            console.log(verificationUrl)
+
+            // oggetto in cui è descritta l'email che verrà inviata al client
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'RC-uni - reset password',
+                html: `Please click the link to reset password: <a href="${verificationUrl}">${verificationUrl}</a>`,
+            }
+
+            return await emailTransporter.sendMail(mailOptions)
         }
-
-        console.log(await emailTransporter.sendMail(mailOptions))
-
-        return await emailTransporter.sendMail(mailOptions)
     }catch(err){
         console.error("Failed to send email, retry", err.message);
     }
@@ -143,4 +159,69 @@ async function login(req, res){
     }
 }
 
-module.exports = {register, accountVerify, login}
+async function resetPasswordRequest(req, res){
+    const {email} = req.body;
+
+    try{
+        // controllo body della richiesta
+        if(!email){
+            return res.status(400).json({error: 'Email is required'})
+        }
+
+        const user = await User.findOne({email})
+        if(!user){
+            return res.status(404).json({error: 'Email not valid, try again'})
+        }
+
+        //genero una stringa casuale per il campo passwordForgottenKey
+        const randomString = crypto.randomBytes(32).toString('hex');
+        console.log(randomString)
+
+        user.passwordForgottenKey = randomString;
+        await user.save();
+
+        await emailSender(user.email,user.id,user.passwordForgottenKey)
+
+        res.send("Email successfully sent")
+    }catch(err){
+        console.error(err.message);
+        res.status(500).send("Internal Server Error")
+    }
+}
+
+async function resetPassword(req, res){
+    const passwordForgottenKey = req.params.key;
+    const {newPass} = req.body;
+
+    console.log(passwordForgottenKey)
+    console.log(newPass);
+
+    try{
+        const user = await User.findOne({passwordForgottenKey})
+        if(!user){
+            return res.status(404).json({error: 'Link not valid'})
+        }
+
+        if(!newPass){
+            return res.status(400).json({message: "New password is required"})
+        }
+
+        console.log(user.password)
+        console.log(user.passwordForgottenKey)
+        user.password = newPass;
+        user.passwordForgottenKey = undefined;
+
+        await user.save();
+
+        console.log(user.password)
+        console.log(user.passwordForgottenKey)
+
+        res.status(200).send("Password successfully reset")
+
+    }catch(err){
+        console.error(err.message);
+        res.status(500).send("Internal Server Error")
+    }
+}
+
+module.exports = {register, accountVerify, login, resetPasswordRequest, resetPassword}
