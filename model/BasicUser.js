@@ -2,16 +2,11 @@ const mongoose = require('mongoose');
 const {isEmail} =require("validator");
 const bcrypt = require('bcrypt');
 
-const userSchema = new mongoose.Schema({
+const basicUserSchema = new mongoose.Schema({
     hide: {
         type: Boolean,
         default: false
     },
-    hasPublicObjects: {
-        type: Boolean,
-        default: false
-    },
-
     email: {
         type: String,
         required: true,
@@ -30,12 +25,9 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true,
-        minLength: 8
+        minlength: 8
     }, // hash in produzione
-    name: {
-        type: String,
-        unique: true
-    }, //nome d'arte
+
     realName: {
         type: String,
         required:true
@@ -47,17 +39,15 @@ const userSchema = new mongoose.Schema({
     countryCitizenship: [{
         type: String
     }],
-    affiliation: {
-        type: String
-    }, //istituzioni che collaborano con RC
-    favorites: [{
-        type: String
-    }], // ids di contenuti preferiti
+
+    // piccola descrizione
     tagLine: {
         type: String
     },
+
     yearOfBirth: {
-        type: Number
+        type: Number,
+        min:[1950,"Please insert a valid year of Birth."]
     },
 
     // TODO: Relazioni da creare
@@ -65,6 +55,7 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
     }],
+    // richieste utente in attesa di accettazione
     pendingPortals: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
@@ -72,15 +63,11 @@ const userSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        enum: ["super-admin", "portal-admin", "reviewer", "limited-user"]
+        enum: ["super-admin", "portal-admin", "reviewer", "limited-user"],
+        default: 'limted-user' //usato sia per basic che full user per i token
     }],
-    passwordForgottenKey: { type: String },
 
-    sarMember: {
-        type: Boolean,
-        default: false
-    },
-    memberInstitution: { type: String },
+    passwordForgottenKey: { type: String },
 
     // Documenti embedded
     settings: {
@@ -94,34 +81,40 @@ const userSchema = new mongoose.Schema({
         // puoi estendere in base al file PHP Settings.php
     },
 
-    description: {
-        en: { type: String },
-        it: { type: String },
-        // altre lingue possibili
-    },
 
-    groups: [{ type: String }],
+    description: [
+            {
+                lang:{
+                    type:String,
+                    enum:["en","ita","por","nld","est","fin","fra","deu","lor","swe","spa","dan","lit"],
+                    default:"en",
+                    unique:true
+                },
+                content:{
+                    type:String,
+                }
+            }
+    ],
 
     curriculumVitae: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Media"
     }, //one to one cv
 
-    researches: [{
+    // ricercatori che l'utente segue
+    followedResearchers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BaseUser" }],
+
+    favoritesExposition: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
-    }], //id di esposizioni dell'utente (one to many)
-    works: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Work"
-    }], //id di lavori dell'utente (one to many)
-
-    followedEntityIds: [{ type: Number }], //id di profile preferiti
+    }], // TODO: da testare dopo la creazione del modello Esposizione
 
 },{timestamps:true});
 
 
-userSchema.pre("save",async function(next){
+basicUserSchema.pre("save",async function(next){
     if(!this.isModified('password')){
         return next();
     }
@@ -134,10 +127,9 @@ userSchema.pre("save",async function(next){
     }
 })
 
-userSchema.methods.comparePassword=async function(candidatePw){
+basicUserSchema.methods.comparePassword=async function(candidatePw){
     return await bcrypt.compare(candidatePw,this.password);
 }
 
 
-
-module.exports = mongoose.model('User', userSchema)
+module.exports = mongoose.model('BasicUser', basicUserSchema);
