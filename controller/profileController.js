@@ -1,13 +1,29 @@
 // controller che presente le funzionalità di gestione del profilo da parte di un utente
 const BasicUser = require('../model/BasicUser');
 
+async function getProfile(req, res) {
+    try{
+        const userId = req.user.id;
+
+        const user = await BasicUser.findById(userId)
+
+        if(!user){
+            return res.status(404).json({error: 'User not found'});
+        }
+
+        res.json(user);
+    }catch(err){
+        console.log(err);
+        return res.status(500).send('Internal server error');
+    }
+}
+
 async function editProfile(req, res){
     const body = req.body;
+    const userId = req.user.id //ottenuto da verifyToken
 
     try{
-        //dal token prendere id utente e vedere se l'access token è valido
-        // per il momento uso l'id utente
-        const user = await BasicUser.findById(body.userId);
+        const user = await BasicUser.findById(userId);
 
         //email
         if(!body.email){
@@ -70,11 +86,10 @@ async function editSettings(req, res){
 }
 
 async function editPassword(req, res){
-    const {newPass, conNewPass, userId} = req.body;
+    const {newPass, conNewPass} = req.body;
+    const userId = req.user.id;
 
     try{
-        //dal token prendere id utente e vedere se l'access token è valido
-        // per il momento uso l'id utente
         const user = await BasicUser.findById(userId);
 
         if(!newPass){
@@ -99,4 +114,4 @@ async function editPassword(req, res){
     }
 }
 
-module.exports = {editProfile, editPassword};
+module.exports = {getProfile, editProfile, editPassword};

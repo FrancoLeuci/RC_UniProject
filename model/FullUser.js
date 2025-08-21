@@ -17,7 +17,7 @@ const fullUser= new mongoose.Schema({
         default: Date.now
     },
 
-    //TODO: capire a che serve
+    //indica se l'utente ha pubblicato almeno un oggetto
     hasPublicObjects: {
         type: Boolean,
         default: false

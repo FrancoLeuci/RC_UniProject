@@ -63,8 +63,9 @@ const basicUserSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
+        // admin e reviewer potrebbero essere ridondanti. Chiedere o controllare.
         enum: ["super-admin", "portal-admin", "reviewer", "limited-user"],
-        default: 'limted-user' //usato sia per basic che full user per i token
+        default: 'limited-user' //usato sia per basic che full user per i token
     }],
 
     passwordForgottenKey: { type: String },
@@ -110,6 +111,8 @@ const basicUserSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
     }], // TODO: da testare dopo la creazione del modello Esposizione
+
+
 
 },{timestamps:true});
 

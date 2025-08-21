@@ -2,9 +2,25 @@ const basicUser = require('../model/BasicUser')
 const nodemailer = require('nodemailer');
 const {google} = require('googleapis');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken')
+const RefreshToken=require("../model/tokenModel")
 require('dotenv').config();
 
 //TODO: LUCIA RICORDA DI DISATTIVARE AVG DEL CAZZO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+const generateTokens=async (userID, roles)=>{
+    let dataBase=true;
+
+    const accessToken=jwt.sign({userId:userID, userRoles: roles},process.env.LOGIN_TOKEN,{expiresIn:"1m"});
+    const refreshTokenFromDataBase=await RefreshToken.findOne({userId: userID});
+    if(!refreshTokenFromDataBase){
+        dataBase=false;
+        const refreshToken=jwt.sign({userId:userID, userRoles: roles},process.env.REFRESH_TOKEN,{expiresIn:"6d"});
+        return {accessToken,refreshToken,dataBase};
+    }else{
+        const refreshToken=refreshTokenFromDataBase.token
+        return {accessToken,refreshToken,dataBase};
+    }
+}
 
 async function emailSender (email, id, resetKey){
     try{
@@ -46,8 +62,8 @@ async function emailSender (email, id, resetKey){
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: email,
-                subject: 'RC-uni - account verify',
-                html: `Please click the link to verify your email: <a href="${verificationUrl}">${verificationUrl}</a>`,
+                subject: 'Confirm your email address',
+                html: `Please click below to confirm your email address: <a href="${verificationUrl}">Confirm email address</a>`,
             }
 
             return await emailTransporter.sendMail(mailOptions)
@@ -60,8 +76,8 @@ async function emailSender (email, id, resetKey){
             const mailOptions = {
                 from: process.env.EMAIL_USER,
                 to: email,
-                subject: 'RC-uni - reset password',
-                html: `Please click the link to reset password: <a href="${verificationUrl}">${verificationUrl}</a>`,
+                subject: 'Reset your account password',
+                html: `Please click below to reset your account password: <a href="${verificationUrl}">Reset password</a>`,
             }
 
             return await emailTransporter.sendMail(mailOptions)
@@ -99,12 +115,12 @@ async function accountVerify(req, res){
 
     try{
         // verifica che l'utente esista nel DB
+        //TODO: rimuoverlo dopo che porrò al posto di id il token
         const user = await basicUser.findById(id)
         if(!user){
             return res.status(404).send('User not found');
         }
 
-        //TODO: rimuoverlo dopo che porrò al posto di id il token
         if(user.verified){
             return res.status(403).send('Account already verified');
         }
@@ -144,19 +160,64 @@ async function login(req, res){
 
         // verifico che l'account sia stato verificato
         if(!user.verified){
-            return res.status(401).json({message: "Account not verified, please check your email"})
+            return res.status(401).json({message: "Account not verified, please check your email box."})
         }
 
         console.log(user._id)
 
+        const {accessToken,refreshToken,dataBase}=await generateTokens(user._id, user.roles);
+        console.log(dataBase," ", refreshToken)
+        console.log("REFRESH: ", refreshToken)
+        console.log("ACCESS: ", accessToken)
+        if(!dataBase){
+            await RefreshToken.create({
+                token:refreshToken,
+                userId:user._id,
+                userRoles:user.roles
+            });
+        }
+
+        res.cookie('jwt', refreshToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            maxAge:  6* 24 * 60 * 60 * 1000,
+        });
         //TODO: inserire la generazione dei token
 
         return res.status(200).json({
-            message: `Successfully logged in: ${user.email}`
-            //TODO: inserire accessToken
+            message: `Successfully logged in: ${user.email}`,
+            accessToken
         })
     }catch(err){
         console.error(err.message);
+        res.status(500).send("Internal Server Error")
+    }
+}
+
+async function logout(req, res){
+    const cookies=req.cookies;
+
+    if(!cookies?.jwt){
+        return res.sendStatus(204);
+    }
+    const refreshTokenFromCookie=cookies.jwt;
+
+    try{
+        await RefreshToken.deleteOne({
+            token:refreshTokenFromCookie
+        })
+
+        res.clearCookie("jwt",{
+            httpOnly:true,
+            secure:true,
+            sameSite:"None",
+        })
+
+        res.status(200).json({message:'Logout effettuato con successo.'})
+
+    }catch(err){
+        console.error(err.message)
         res.status(500).send("Internal Server Error")
     }
 }
@@ -226,4 +287,4 @@ async function resetPassword(req, res){
     }
 }
 
-module.exports = {register, accountVerify, login, resetPasswordRequest, resetPassword}
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword}
