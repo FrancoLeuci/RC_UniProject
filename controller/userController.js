@@ -1,4 +1,4 @@
-const basicUser = require('../model/BasicUser')
+const BasicUser = require('../model/BasicUser')
 const nodemailer = require('nodemailer');
 const {google} = require('googleapis');
 const crypto = require('crypto');
@@ -91,9 +91,8 @@ async function register(req, res){
     const {surname,name,email,password,hide}=req.body;
 
     try{
-        const user=await basicUser.create({
+        const user=await BasicUser.create({
             realName: `${name} ${surname}`,
-            name, //TODO: name deve essere univoco per ogni user, ma dato che name va inserito dopo abbiamo che se 2 persone creano allo stesso momento 2 account, avremo che entrambi avranno name = null => errore nel DB
             email,
             password,
             hide
@@ -116,7 +115,7 @@ async function accountVerify(req, res){
     try{
         // verifica che l'utente esista nel DB
         //TODO: rimuoverlo dopo che porrò al posto di id il token
-        const user = await basicUser.findById(id)
+        const user = await BasicUser.findById(id)
         if(!user){
             return res.status(404).send('User not found');
         }
@@ -148,7 +147,7 @@ async function login(req, res){
             return res.status(400).json({error: 'Password is required'})
         }
 
-        const user = await basicUser.findOne({email})
+        const user = await BasicUser.findOne({email})
         if(!user){
             return res.status(404).json({error: 'User not found'})
         }
@@ -231,7 +230,7 @@ async function resetPasswordRequest(req, res){
             return res.status(400).json({error: 'Email is required'})
         }
 
-        const user = await basicUser.findOne({email})
+        const user = await BasicUser.findOne({email})
         if(!user){
             return res.status(404).json({error: 'Email not valid, try again'})
         }
@@ -260,7 +259,7 @@ async function resetPassword(req, res){
     console.log(newPass);
 
     try{
-        const user = await basicUser.findOne({passwordForgottenKey})
+        const user = await BasicUser.findOne({passwordForgottenKey})
         if(!user){
             return res.status(404).json({error: 'Link not valid'})
         }
