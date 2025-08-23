@@ -1,10 +1,9 @@
-const mongoose = require('mongoose')
 const Portal = require("../../model/Portal")
 
 async function edit (req, res){
     const body = req.body;
     const userId = req.user.id; //prende dal token
-    const portalId = req.params.id;
+    const portalId = req.params.portal;
 
     try{
         const portal = Portal.findById(portalId)
@@ -89,7 +88,7 @@ async function edit (req, res){
 }
 
 async function getAllInfo(req, res){
-    const portalId = req.params.id;
+    const portalId = req.params.portal;
 
     try{
         const portal = Portal.findById(portalId)

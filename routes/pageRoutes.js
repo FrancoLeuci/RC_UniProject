@@ -3,8 +3,8 @@ const {getAllUser, getUserWithPublic, getPortals} = require('../controller/pageC
 
 const router = express.Router();
 
-app.get('/users', getAllUser);
-app.get('/users/publicObject=1', getUserWithPublic);
-app.get('/portals', getPortals);
+router.get('/users', getAllUser);
+router.get('/users/publicObject=1', getUserWithPublic);
+router.get('/portals', getPortals);
 
 module.exports = router

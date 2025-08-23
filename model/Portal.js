@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const basicUser=require('./BasicUser')
+const BasicUser=require('./BasicUser')
 
 const PortalSchema = new mongoose.Schema(
     {
@@ -11,10 +11,10 @@ const PortalSchema = new mongoose.Schema(
         default: { type: Boolean, default: false }, //true se il portale è principale, false se è un semplice archivio con tutte quante le esposizioni
 
         // ReferenceMany verso User/Issue/Exposition
-        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: basicUser }], //da qui nasce la lista degli utenti portal admin e di quale portale sono portal admin
-        reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: basicUser }],
-        contactPersons: [{ type: mongoose.Schema.Types.ObjectId, ref: basicUser }],
-        members: [{ type: mongoose.Schema.Types.ObjectId, ref: basicUser }],
+        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin e di quale portale sono portal admin
+        reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
+        contactPersons: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
+        members: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         issues: [{ type: mongoose.Schema.Types.ObjectId, ref: "Issue" /*da creare*/ }], //pubblicazioni
 
         externalContactPersons: { type: String }, //contatti esterni

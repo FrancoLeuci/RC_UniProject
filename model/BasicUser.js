@@ -105,7 +105,7 @@ const basicUserSchema = new mongoose.Schema({
     // ricercatori che l'utente segue
     followedResearchers: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "BaseUser" }],
+        ref: "BasicUser" }],
 
     favoritesExposition: [{
         type: mongoose.Schema.Types.ObjectId,

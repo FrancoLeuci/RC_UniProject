@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const BasicUser=require('BasicUser')
+const BasicUser=require('./BasicUser')
 
 const fullUser= new mongoose.Schema({
     basicCorresponent:{
