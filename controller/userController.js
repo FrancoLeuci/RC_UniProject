@@ -10,7 +10,7 @@ require('dotenv').config();
 const generateTokens=async (userID, roles)=>{
     let dataBase=true;
 
-    const accessToken=jwt.sign({userId:userID, userRoles: roles},process.env.LOGIN_TOKEN,{expiresIn:"1m"});
+    const accessToken=jwt.sign({userId:userID, userRoles: roles},process.env.LOGIN_TOKEN,{expiresIn:"10m"});
     const refreshTokenFromDataBase=await RefreshToken.findOne({userId: userID});
     if(!refreshTokenFromDataBase){
         dataBase=false;

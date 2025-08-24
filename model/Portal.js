@@ -25,13 +25,20 @@ const PortalSchema = new mongoose.Schema(
         issueList: { type: [String], default: [] },
         textExpositionTemplates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exposition" }],
 
-        features: [{
-            type:Boolean,
-            default:false,
-            //TODO vedere ogni flag
-            enum:["EXPOSITION_CONNECTING","EXPOSITION_DOI_DEPOSIT","EXPOSITION_PUBLISHING",
-                "LIMITED_EXPOSITION_PUBLISHING","WORK_CONNECTING","APPLICATION_PUBLISHING","PROFILE",
-                "LINK_EXTERNAL","APPLICATION_PROGRAM","MEMBERSHIP_SELECTION","EXTERNAL_CONTENT"]
+        //oggetto opzioni:
+
+        features: {
+            EXPOSITION_CONNECTING:{type:Boolean, default:false},
+            EXPOSITION_DOI_DEPOSIT:{type:Boolean, default:false},
+            EXPOSITION_PUBLISHING:{type:Boolean, default:false},
+            LIMITED_EXPOSITION_PUBLISHING:{type:Boolean, default:false},
+            WORK_CONNECTING:{type:Boolean, default:false},
+            APPLICATION_PUBLISHING:{type:Boolean, default:false},
+            PROFILE:{type:Boolean, default:false},
+            LINK_EXTERNAL:{type:Boolean, default:false},
+            APPLICATION_PROGRAM:{type:Boolean, default:false},
+            MEMBERSHIP_SELECTION:{type:Boolean, default:false},
+            EXTERNAL_CONTENT:{type:Boolean, default:false},
 
             /*LINK EXTERNAL=Se true, verrà caricato il sito esterno indicato nel campo url invece del portale sul sito, cliccando da quello della pagina RC
             MEMBERSHIP_SELECTION=Se true, gli utenti possono inviare richiesta per entrare nel portale
@@ -40,10 +47,9 @@ const PortalSchema = new mongoose.Schema(
             EXPOSITION_PUBLISHING=Se true i ricercatori possono chiedere di pubblicare nel portale
             EXTERNAL_CONTENT= se true l'utente può inviare expositions con contenuto esterno al loro interno.
             LIMITED_EXPOSITION_PUBLISHING=permette a utenti di richiedere in maniera limitata una pubblicazione.
-
-            APPLICATION_PROGRAM e _PUBLISHING, WORK_CONNECTING: vedere a cosa serveno
+            APPLICATION_PROGRAM e _PUBLISHING, WORK_CONNECTING: vedere a cosa servono
             * */
-        }]
+        }
     }, { timestamps: true }
 )
 

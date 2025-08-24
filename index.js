@@ -13,8 +13,8 @@ const Port = process.env.PORT || 5000;
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
-app.use("api/portal", portalRoutes);
-app.use("api", pageRoutes)
+app.use("/api/portal", portalRoutes);
+app.use("/api", pageRoutes)
 
 dbCon().then(()=>{
     app.listen(Port, ()=>{

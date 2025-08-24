@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const {isEmail} =require("validator");
 const bcrypt = require('bcrypt');
+const Portal=require("./Portal")
 
 const basicUserSchema = new mongoose.Schema({
     hide: {
@@ -104,8 +105,40 @@ const basicUserSchema = new mongoose.Schema({
 
     // ricercatori che l'utente segue
     followedResearchers: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "BasicUser" }],
+        followedUserId:{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "BasicUser"
+        },
+        options:{
+            share:{type:Boolean,default:true},
+            edit:{type:Boolean,default:true},
+            comment:{type:Boolean,default:true},
+            publication:{type:Boolean,default:true},
+            //PUBBLICATION: SE FALSE NON MOSTRA LE PUBBLICAZIONI
+            //EDIT: SE FALSE NON APPARE QUANDO VIENE MODIFICATA EXPO
+            //COMMENT: SE TRUE APPARE QUANDO LA PERSONA COMMENTA QUALCOSA
+            //SHARE: TRUE APPARE QUANDO LA PERSONA CONDIVIDE SU INSTA...
+        }
+    }],
+
+
+
+    followedPortals:[{
+        followedPortalId:{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: Portal
+        },
+        options:{
+            share:{type:Boolean,default:true},
+            edit:{type:Boolean,default:true},
+            comment:{type:Boolean,default:true},
+            publication:{type:Boolean,default:true},
+            //PUBBLICATION: SE FALSE NON MOSTRA LE PUBBLICAZIONI
+            //EDIT: SE FALSE NON APPARE QUANDO VIENE MODIFICATA EXPO
+            //COMMENT: SE TRUE APPARE QUANDO LA PERSONA COMMENTA QUALCOSA
+            //SHARE: TRUE APPARE QUANDO LA PERSONA CONDIVIDE SU INSTA...
+        }
+    }],
 
     favoritesExposition: [{
         type: mongoose.Schema.Types.ObjectId,

@@ -1,9 +1,8 @@
-const mongoose = require('mongoose')
 const BasicUser = require('../model/BasicUser');
 const FullUser = require('../model/FullUser');
 const Portal = require('../model/Portal')
 
-async function getAllUser(req, res){
+async function getAllUsers(req, res){
     try{
         const users = await BasicUser.find({})
 
@@ -36,4 +35,4 @@ async function getPortals(req, res){
     }
 }
 
-module.exports = {getAllUser, getUserWithPublic, getPortals}
+module.exports = {getAllUsers, getUserWithPublic, getPortals}

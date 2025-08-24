@@ -12,31 +12,14 @@ const FullUser = require("../../model/FullUser");
 
 //pending requests
 
-//da trasformare in un middleware
-async function portalAdmin(portalId,adminId,res){
-
-        const portal = await Portal.findById(portalId)
-        if(!portal){
-            throw new Error("portalMissing")
-        }
-        const admin= portal.admins.find(admin => String(admin) === adminId)
-        if(!admin) {
-            throw new Error("adminMissing")
-        }
-        return portal
-
-}
 
 async function newUser(req,res) {
-    const adminId = req.user.id; //dalla verifica del token
-    const portalId = req.params.portal;
-
+    const portal=req.portal;
     const {email, name, surname, password} = req.body;
     const realName = `${name} ${surname}`;
 
     try {
 
-        const portal = await portalAdmin(portalId, adminId);
                 if (!email || !name || !surname || !password) {
                     res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
                 }
@@ -70,23 +53,16 @@ async function newUser(req,res) {
 
                 res.status(201).send("You created a new Account.")
     } catch (err) {
-        if (err.message === "portalMissing") {
-            return res.status(404).send("Portal Not Found");
-        }
-        if (err.message === "adminMissing") {
-            return res.status(401).send("Not Authorized.");
-        }
         console.error(err);
         res.status(500).send("Internal Server Error");
     }
 }
 
 async function addToPortal(req,res){
-    const adminId=req.user.id; //dalla verifica del token
-    const portalId=req.params.portal;
+
+    const portal=req.portal;
     const newMemberId=req.params.id;
     try{
-        const portal=await portalAdmin(portalId,adminId);
         if(portal.members.find(memberId=>String(memberId)===newMemberId)){
             res.status(409).send("User already a member of the Portal.");
         }
@@ -96,23 +72,15 @@ async function addToPortal(req,res){
         console.log("Componente aggiunto alla lista di membri del portale.")
         res.status(201).json({ok:true,message:"Added to the members list."})
     }catch(err){
-        if (err.message === "portalMissing") {
-            return res.status(404).send("Portal Not Found");
-        }
-        if (err.message === "adminMissing") {
-            return res.status(401).send("Not Authorized.");
-        }
         console.error(err);
         res.status(500).send("Internal Server Error");
     }
 }
 
 async function removeFromPortal(req,res){
-    const adminId=req.user.id; //dalla verifica del token
-    const portalId=req.params.portal;
+    const portal=req.portal;
     const memberToRemoveId=req.params.id;
     try{
-        const portal=await portalAdmin(portalId,adminId);
         if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)){
             portal.members.filter(memberId=>String(memberId)!==memberToRemoveId);
             await portal.save();
@@ -124,32 +92,24 @@ async function removeFromPortal(req,res){
 
         res.status(200).json({ok:true,message:"Deleted from the members list."})
     }catch(err){
-        if (err.message === "portalMissing") {
-            return res.status(404).send("Portal Not Found");
-        }
-        if (err.message === "adminMissing") {
-            return res.status(401).send("Not Authorized.");
-        }
         console.error(err);
         res.status(500).send("Internal Server Error");
     }
 }
 
 async function editUser(req, res){
-    const adminId = req.user.id;
     const userId = req.params.id;
-    const portalId = req.params.portal;
     const body = req.body;
 
     try{
-        await portalAdmin(portalId, adminId);
         const user = await BasicUser.findById(userId);
-        const userFull = await FullUser.find({basicCorresponent: user._id}) //serve per l'alias
+        if(!user){res.status(404).send("The user doesn't exist.")}
+        const userFull = await FullUser.find({basicCorrespondent: user._id}) //serve per l'alias
+
 
         //profile
-        if(!body.name){
-            res.status(400).json({message: "User required a name"})
-        } else {
+        //controllo per verificare che nella richiesta non venga cancellato il nome di un utente
+        if(body.name){
             user.realName = body.name;
         }
 
@@ -158,9 +118,7 @@ async function editUser(req, res){
             await userFull.save()
         }
 
-        if(!body.email){
-            res.status(400).json({message: "User required an email"})
-        } else {
+        if(body.email){
             user.email = body.email;
         }
 
@@ -169,12 +127,6 @@ async function editUser(req, res){
            user.password = body.password;
         }
 
-        //TODO: portal - rivedere
-        if(!body.portals){
-            res.status(400).json({message: "User required to be part of a portal"})
-        } else {
-            user.portals.concat(body.portals);
-        }
 
         //roles
         user.approved = !body.approved; //se la checkbox è true => campo approved diviene false e viceversa
@@ -190,36 +142,46 @@ async function editUser(req, res){
 
         res.status(200).json({ok:true,message:"User updated successfully."})
     }catch(err){
-        if (err.message === "portalMissing") {
-            return res.status(404).send("Portal Not Found");
-        }
-        if (err.message === "adminMissing") {
-            return res.status(401).send("Not Authorized.");
-        }
         console.error(err);
         res.status(500).send("Internal Server Error");
     }
 }
 
+async function addToOtherPortal(req,res){
+    //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
+    //del quale disponiamo dell'id (req.params.id)
+    const portal=req.portal;
+    const userId=req.params.id;
+    const otherPortal=req.params.otherPortal
+    try{
+        if(!portal.members.find(memberId=>String(memberId)===userId)){
+            res.status(401).send("Not authorized to operate on this User.");
+        }
+
+        if(otherPortal.members.find(memberId=>String(memberId)===userId)){
+            res.status(409).send("User already in this Portal.")
+        }
+
+        //manca implementazione super admin
+
+    }catch(err){
+        console.log("Errore: ",err)
+        res.status(500).send("An error occured while adding this user to another portal.")
+    }
+
+}
+
 async function getPortalMembers(req, res){
-    const adminId = req.user.id;
-    const portalId=req.params.id;
+    const portal = req.portal
 
     try{
-        const portal = await portalAdmin(portalId,adminId);
 
         res.json(portal.members);
 
     }catch(err){
-        if (err.message === "portalMissing") {
-            return res.status(404).send("Portal Not Found");
-        }
-        if (err.message === "adminMissing") {
-            return res.status(401).send("Not Authorized.");
-        }
         console.error(err);
         res.status(500).send("Internal Server Error");
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers}
+module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal}

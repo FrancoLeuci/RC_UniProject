@@ -91,7 +91,6 @@ async function editPassword(req, res){
 
     try{
         const user = await BasicUser.findById(userId);
-
         if(!newPass){
             return res.status(404).json({error: 'Insert password'})
         }
