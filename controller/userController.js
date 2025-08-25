@@ -12,6 +12,7 @@ const generateTokens=async (userID, roles)=>{
 
     const accessToken=jwt.sign({userId:userID, userRoles: roles},process.env.LOGIN_TOKEN,{expiresIn:"10m"});
     const refreshTokenFromDataBase=await RefreshToken.findOne({userId: userID});
+
     if(!refreshTokenFromDataBase){
         dataBase=false;
         const refreshToken=jwt.sign({userId:userID, userRoles: roles},process.env.REFRESH_TOKEN,{expiresIn:"6d"});
@@ -91,47 +92,59 @@ async function register(req, res){
     const {surname,name,email,password,hide}=req.body;
 
     try{
+        if(!surname){
+            return res.status(400).json({message: 'Missing surname'})
+        }
+        if(!name){
+            return res.status(400).json({message: 'Missing name'})
+        }
+        if(!email){
+            return res.status(400).json({message: 'Missing email address'})
+        }
+        if(!password){
+            return res.status(400).json({message: 'Missing password'})
+        }
+
         const user=await BasicUser.create({
             realName: `${name} ${surname}`,
             email,
             password,
             hide
         })
-        console.log("Utente creato", user);
+        console.log("UTENTE: ", user);
 
         await emailSender(user.email, user._id)
 
-        res.send("Email successfully sent")
+        res.status(201).json({ok: true, message:"User successfully registered, check email"})
     } catch (err) {
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: "Internal Server Error"})
     }
 }
 
 async function accountVerify(req, res){
-    const id = req.params.id //TODO: modificare col token
-    console.log(req.params)
+    const id = req.params.id
 
     try{
-        // verifica che l'utente esista nel DB
-        //TODO: rimuoverlo dopo che porrò al posto di id il token
+        // verifica che l'utente esista nel DBn
         const user = await BasicUser.findById(id)
         if(!user){
-            return res.status(404).send('User not found');
+            return res.status(404).json({error: 'User not found'});
         }
 
         if(user.verified){
-            return res.status(403).send('Account already verified');
+            return res.status(208).json({message: 'Account already verified'});
         }
 
         user.verified = true
+
         await user.save()
 
-        res.status(200).send('Account verified');
+        res.status(200).json({ok: true, message:"Account is verified, now you can login"});
 
     }catch(err){
         console.log(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: "Internal Server Error"})
     }
 }
 
@@ -141,10 +154,10 @@ async function login(req, res){
     try{
         // controllo body della richiesta
         if(!email){
-            return res.status(400).json({error: 'Email is required'})
+            return res.status(400).json({message: 'Missing email'})
         }
         if(!password){
-            return res.status(400).json({error: 'Password is required'})
+            return res.status(400).json({message: 'Missing password'})
         }
 
         const user = await BasicUser.findOne({email})
@@ -154,13 +167,13 @@ async function login(req, res){
 
         const valid = await user.comparePassword(password)
         if(!valid){
-            return res.status(403).json({message: 'Invalid password'})
+            return res.status(401).json({error: 'Incorrect password'})
         }
 
         // verifico che l'account sia stato verificato
         if(!user.verified){
-            return res.status(401).json({message: "Account not verified, please check your email box."})
-        }
+            return res.status(401).json({error: 'Account not verified'})
+       }
 
         console.log(user._id)
 
@@ -182,15 +195,15 @@ async function login(req, res){
             sameSite: 'None',
             maxAge:  6* 24 * 60 * 60 * 1000,
         });
-        //TODO: inserire la generazione dei token
 
-        return res.status(200).json({
+        res.status(200).json({
+            ok: true,
             message: `Successfully logged in: ${user.email}`,
             accessToken
         })
     }catch(err){
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: 'Internal Server Error'})
     }
 }
 
@@ -213,11 +226,11 @@ async function logout(req, res){
             sameSite:"None",
         })
 
-        res.status(200).json({message:'Logout effettuato con successo.'})
+        res.status(200).json({ok: true, message:'Logout effettuato con successo.'})
 
     }catch(err){
         console.error(err.message)
-        res.status(500).send("Internal Server Error")
+        return res.status(400).json({error: 'Internal Server Error'})
     }
 }
 
@@ -227,7 +240,7 @@ async function resetPasswordRequest(req, res){
     try{
         // controllo body della richiesta
         if(!email){
-            return res.status(400).json({error: 'Email is required'})
+            return res.status(400).json({message: 'Missing email'})
         }
 
         const user = await BasicUser.findOne({email})
@@ -244,10 +257,10 @@ async function resetPasswordRequest(req, res){
 
         await emailSender(user.email,user.id,user.passwordForgottenKey)
 
-        res.send("Email successfully sent")
+        res.status(200).json({ok: true, message: 'Check your email'})
     }catch(err){
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: 'Missing password'})
     }
 }
 
@@ -255,13 +268,10 @@ async function resetPassword(req, res){
     const passwordForgottenKey = req.params.key;
     const {newPass} = req.body;
 
-    console.log(passwordForgottenKey)
-    console.log(newPass);
-
     try{
         const user = await BasicUser.findOne({passwordForgottenKey})
         if(!user){
-            return res.status(404).json({error: 'Link not valid'})
+            return res.status(403).json({error: 'Link not valid'})
         }
 
         if(!newPass){
@@ -275,14 +285,11 @@ async function resetPassword(req, res){
 
         await user.save();
 
-        console.log(user.password)
-        console.log(user.passwordForgottenKey)
-
-        res.status(200).send("Password successfully reset")
+        res.status(200).json({ok: true, message:"Password successfully reset"})
 
     }catch(err){
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: 'Internal Server Error'})
     }
 }
 

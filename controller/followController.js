@@ -22,7 +22,7 @@ async function getFollowedUsers(req,res){
                 const foundUser=await BasicUser.findById(researcher.followedUserId)
                 if(!foundUser){
                     //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
-                    userAccount.followedReaserchers.slice(i);
+                    userAccount.followedReaserchers.splice(i,1);
                     //save
                     await userAccount.save();
                     return({
@@ -60,7 +60,7 @@ async function getFollowedPortals(req,res){
                 const foundPortal=await Portal.findById(portal.followedPortalId)
                 if(!foundPortal){
                     //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
-                    userAccount.followedPortals.slice(i);
+                    userAccount.followedPortals.splice(i,1);
                     //save
                     await userAccount.save();
                     return({

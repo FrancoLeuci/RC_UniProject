@@ -4,34 +4,47 @@ const Portal = require('../model/Portal')
 
 async function getAllUsers(req, res){
     try{
-        const users = await BasicUser.find({})
+        const users = await BasicUser.find({verified: true})
 
-        res.json(users)
+        /* per testare getUserWithPublic
+        const test = await Promise.all(
+            users.map(user => {
+                return FullUser.create({
+                    basicCorrespondent: user._id,
+                    hasPublicObjects: true
+                })
+            })
+        )*/
+
+        res.status(200).json({ok: true, users})
     }catch(err){
         console.error(err.message)
-        res.status(500).send('Internal Error Server')
+        res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
 async function getUserWithPublic(req, res){
     try{
-        const users = await FullUser.find({hasPublicObjects: true})
+        const fullUsers = await FullUser.find({hasPublicObjects: true})
+        const basicUsers = await Promise.all(
+            fullUsers.map(user => BasicUser.findById(user.basicCorrespondent))
+        )
 
-        res.json(users)
+        res.json({ok: true, fullUsers, basicUsers})
     }catch(err){
         console.error(err.message)
-        res.status(500).send('Internal Error Server')
+        res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
 async function getPortals(req, res){
     try{
-        const portals = await Portal.find({})
+        const portals = await Portal.find({"features.PROFILE": true})
 
-        res.json(portals)
+        res.status(200).json({ok: true, portals})
     }catch(err){
         console.error(err.message)
-        res.status(500).send('Internal Error Server')
+        res.status(500).json({error: 'Internal Error Server'})
     }
 }
 

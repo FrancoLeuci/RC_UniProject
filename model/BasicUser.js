@@ -89,8 +89,7 @@ const basicUserSchema = new mongoose.Schema({
                 lang:{
                     type:String,
                     enum:["en","ita","por","nld","est","fin","fra","deu","lor","swe","spa","dan","lit"],
-                    default:"en",
-                    unique:true
+                    default:"en"
                 },
                 content:{
                     type:String,

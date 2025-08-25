@@ -1,5 +1,3 @@
-const Portal=require("../../model/Portal");
-
 const BasicUser = require("../../model/BasicUser");
 
 const FullUser = require("../../model/FullUser");
@@ -16,61 +14,78 @@ const FullUser = require("../../model/FullUser");
 async function newUser(req,res) {
     const portal=req.portal;
     const {email, name, surname, password} = req.body;
-    const realName = `${name} ${surname}`;
 
     try {
 
-                if (!email || !name || !surname || !password) {
-                    res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
-                }
-                const emailUsed = await BasicUser.findOne({email: email})
-                if (!emailUsed) {
-                    res.status(409).json({message: 'An account associatd with this email already exists.'})
-                }
+        if (!email || !name || !surname || !password) {
+            return res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
+        }
 
-                const alreadyUserByName = await BasicUser.findOne({realName: realName})
-                if (alreadyUserByName) {
-                    const memberOfPortal = portal.members.find(memberId => memberId === alreadyUserByName._id)
-                    if (memberOfPortal) {
-                        res.status(409).json({
-                            error: "UserAlreadyInPortal",
-                            message: "User with the same name is a member of the Portal."
-                        })
-                    }
-                    res.status(409).json({
-                        error: "UserNameExistsAlready",
-                        message: "User already exists, but is not a member of the Portal."
-                    })
-                    //TODO: creare messaggio per la richiesta dell'admin all'utente di invito al portale
-                }
-                const user = await BasicUser.create({
-                    realName,
-                    email,
-                    password,
-                    portals: portal._id //se è creato da un admin del portale
+        const realName = `${name} ${surname}`;
+
+        const emailUsed = await BasicUser.findOne({email: email})
+        if (emailUsed) {
+            return res.status(409).json({message: 'An account associated with this email already exists.'})
+        }
+
+        const alreadyUserByName = await BasicUser.findOne({realName: realName})
+        if (alreadyUserByName !== null) {
+            const memberOfPortal = portal.members.find(memberId => memberId.equals(alreadyUserByName._id))
+            const adminOfPortal = portal.admins.find(adminId => adminId.equals(alreadyUserByName._id));
+            if (memberOfPortal || adminOfPortal) {
+                return res.status(409).json({
+                    error: "UserAlreadyInPortal",
+                    message: "User with the same name is a member of the Portal."
                 })
-                console.log("Portal Admin created a new account.", user);
+            }
+            return res.status(409).json({
+                error: "UserNameExistsAlready",
+                message: "User already exists, but is not a member of the Portal."
+            })
+            //TODO: creare messaggio per la richiesta dell'admin all'utente di invito al portale
+        }
 
-                res.status(201).send("You created a new Account.")
+        const user = await BasicUser.create({
+            realName,
+            email,
+            password,
+            verified: true,
+            portals: portal._id //se è creato da un admin del portale
+        })
+        console.log("Portal Admin created a new account.", user);
+
+        portal.members.push(user._id)
+        await portal.save()
+
+        res.status(201).json({ok: true, message: "You created a new Account."})
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Internal Server Error");
+        console.error(err.message);
+        res.status(500).json({error: "Internal Server Error"});
     }
 }
 
 async function addToPortal(req,res){
-
     const portal=req.portal;
     const newMemberId=req.params.id;
+
+    console.log(portal._id)
+
     try{
         if(portal.members.find(memberId=>String(memberId)===newMemberId)){
-            res.status(409).send("User already a member of the Portal.");
+            return res.status(409).json({message: "User already a member of the Portal."});
         }
 
         portal.members.push(newMemberId);
         await portal.save();
+
+        const newMember = await BasicUser.findById(newMemberId)
+        console.log(newMember)
+        newMember.portals.push(portal._id)
+        console.log(newMember.portals)
+        await newMember.save()
+
         console.log("Componente aggiunto alla lista di membri del portale.")
-        res.status(201).json({ok:true,message:"Added to the members list."})
+        res.status(201).json({ok:true, message:"Added to the members list."})
     }catch(err){
         console.error(err);
         res.status(500).send("Internal Server Error");
@@ -80,13 +95,19 @@ async function addToPortal(req,res){
 async function removeFromPortal(req,res){
     const portal=req.portal;
     const memberToRemoveId=req.params.id;
+
     try{
         if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)){
-            portal.members.filter(memberId=>String(memberId)!==memberToRemoveId);
+            console.log(portal.members.indexOf(memberToRemoveId))
+            portal.members.splice(portal.members.indexOf(memberToRemoveId),1);
             await portal.save();
+
+            const userToRemove = await BasicUser.findById(memberToRemoveId)
+            userToRemove.portals.splice(userToRemove.portals.indexOf(portal._id),1);
+            await userToRemove.save()
             console.log("Componente rimosso dalla lista di membri del portale.")
         } else {
-            res.status(400).json({message: "L'utente non è membro del portale"})
+            return res.status(400).json({message: "L'utente non è membro del portale"})
         }
 
 
@@ -103,8 +124,10 @@ async function editUser(req, res){
 
     try{
         const user = await BasicUser.findById(userId);
-        if(!user){res.status(404).send("The user doesn't exist.")}
-        const userFull = await FullUser.find({basicCorrespondent: user._id}) //serve per l'alias
+
+        if(!user){return res.status(404).json({message: "The user doesn't exist."})}
+
+        const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
 
 
         //profile
@@ -113,7 +136,7 @@ async function editUser(req, res){
             user.realName = body.name;
         }
 
-        if(body.alias){
+        if(userFull && body.alias){
             userFull.alias = body.alias; //campo di FullUser
             await userFull.save()
         }
@@ -131,19 +154,27 @@ async function editUser(req, res){
         //roles
         user.approved = !body.approved; //se la checkbox è true => campo approved diviene false e viceversa
 
+
         //TODO: settings - da completare perchè presenta la questione degli annunci da vedere
         if(!body.language){
-            res.status(400).json({message: "Select a language"})
+            return res.status(400).json({message: "Select a language"})
         } else {
             user.settings.language = body.language
         }
 
         await user.save()
 
+        if(!userFull && user.approved){
+            await FullUser.create({
+                basicCorrespondent: userId,
+                alias: body.alias?body.alias:""
+            })
+        }
+
         res.status(200).json({ok:true,message:"User updated successfully."})
     }catch(err){
         console.error(err);
-        res.status(500).send("Internal Server Error");
+        res.status(500).json({error: "Internal Server Error"});
     }
 }
 
@@ -153,20 +184,21 @@ async function addToOtherPortal(req,res){
     const portal=req.portal;
     const userId=req.params.id;
     const otherPortal=req.params.otherPortal
+
     try{
         if(!portal.members.find(memberId=>String(memberId)===userId)){
-            res.status(401).send("Not authorized to operate on this User.");
+            return res.status(401).json({message: "Not authorized to operate on this User."});
         }
 
         if(otherPortal.members.find(memberId=>String(memberId)===userId)){
-            res.status(409).send("User already in this Portal.")
+            return res.status(409).json({message: "User already in this Portal."})
         }
 
         //manca implementazione super admin
 
     }catch(err){
         console.log("Errore: ",err)
-        res.status(500).send("An error occured while adding this user to another portal.")
+        res.status(500).json({error: "An error occured while adding this user to another portal."})
     }
 
 }
@@ -175,12 +207,13 @@ async function getPortalMembers(req, res){
     const portal = req.portal
 
     try{
+        const users = await Promise.all(portal.members.map(memeber => BasicUser.findById(member)))
 
-        res.json(portal.members);
+        res.status(200).json({ok: true, data: users});
 
     }catch(err){
         console.error(err);
-        res.status(500).send("Internal Server Error");
+        res.status(500).json({error: "Internal Server Error"});
     }
 }
 

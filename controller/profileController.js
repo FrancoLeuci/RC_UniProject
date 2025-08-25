@@ -2,19 +2,18 @@
 const BasicUser = require('../model/BasicUser');
 
 async function getProfile(req, res) {
+    const userId = req.user.id;
+
     try{
-        const userId = req.user.id;
-
         const user = await BasicUser.findById(userId)
-
         if(!user){
             return res.status(404).json({error: 'User not found'});
         }
 
-        res.json(user);
+        res.json({ok: true, user});
     }catch(err){
         console.log(err);
-        return res.status(500).send('Internal server error');
+        return res.status(500).json({error: 'Internal server error'});
     }
 }
 
@@ -24,10 +23,13 @@ async function editProfile(req, res){
 
     try{
         const user = await BasicUser.findById(userId);
+        if(!user){
+            return res.status(404).json({error: 'User not found'});
+        }
 
         //email
         if(!body.email){
-            return res.status(404).json({error: "Please, enter an email"})
+            return res.status(404).json({message: "Missing email"})
         }
         if(body.email!==user.email){
             user.email = body.email;
@@ -35,31 +37,26 @@ async function editProfile(req, res){
 
 
         //anno di nascita
-        console.log(user.yearOfBirth)
         if(body.yearOfBirth!==user.yearOfBirth){
             user.yearOfBirth = body.yearOfBirth;
         }
 
         //nazione di residenza
-        console.log(user.countryResidence)
         if(body.countryResidence!==user.countryResidence){
             user.countryResidence = body.countryResidence;
         }
 
         //nazione di cui si ha la cittadinanza
-        console.log(user.countryCitizenship)
         if(body.countryCitizenship!==user.countryCitizenship){
             user.countryCitizenship = body.countryCitizenship;
         }
 
         //tagline
-        console.log(user.tagLine)
         if(body.tagLine!==user.tagLine){
             user.tagLine = body.tagLine;
         }
 
-        console.log(user.description)
-        //TODO: vedere come fare il fatto di description
+        //description
         if(body.description){
             for(const item of body.description){
                 if(user.description.find(userItem=>userItem.lang===item.lang)){
@@ -70,13 +67,12 @@ async function editProfile(req, res){
             }
         }
 
-
         await user.save()
-        res.status(200).send('Profile edit')
+        res.status(200).json({ok: true, message: 'Profile update'})
 
     }catch(err){
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: "Internal Server Error"})
     }
 }
 
@@ -92,24 +88,24 @@ async function editPassword(req, res){
     try{
         const user = await BasicUser.findById(userId);
         if(!newPass){
-            return res.status(404).json({error: 'Insert password'})
+            return res.status(400).json({message: 'Missing new password'})
         }
         if(!conNewPass){
-            return res.status(404).json({error: 'Insert confirm password'})
+            return res.status(400).json({message: 'Missing confirm password'})
         }
 
         if(newPass!==conNewPass){
-            return res.status(404).send("Confirm passwords don't match")
+            return res.status(400).json({error: "Confirm password don't match"})
         }
 
         user.password = newPass;
 
         await user.save()
 
-        res.status(200).send('Password change')
+        res.status(200).json({ok: true, message: 'Password change successfully'})
     } catch(err){
         console.error(err.message);
-        res.status(500).send("Internal Server Error")
+        res.status(500).json({error: "Internal Server Error"})
     }
 }
 
