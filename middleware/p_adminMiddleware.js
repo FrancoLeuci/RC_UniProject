@@ -16,8 +16,7 @@ async function portalAdminCheck(req,res,next){
             res.status(401).send("Not Authorized.")
         }
 
-        // TODO: discutere se fare il controllo in caso di eliminazione di un account nel portale
-        // controlli sui members, admins, contact e reviewer
+        // TODO: controllo dei membri del portale sulle funzioni del superAdmin
 
         req.portal=portal;
         next()

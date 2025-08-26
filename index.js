@@ -5,6 +5,8 @@ const dbCon = require('./controller/DBcontroller');
 const authRoutes = require('./routes/authRoutes');
 const portalRoutes = require('./routes/portalRoutes');
 const pageRoutes = require('./routes/pageRoutes')
+const followRoutes = require('./routes/followRoutes');
+const mediaRoutes = require('./routes/mediaRoutes');
 
 const app = express();
 
@@ -15,6 +17,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/portal", portalRoutes);
 app.use("/api", pageRoutes)
+app.use("/api/follow", followRoutes)
+app.use("/api/uploads",mediaRoutes)
 
 dbCon().then(()=>{
     app.listen(Port, ()=>{
