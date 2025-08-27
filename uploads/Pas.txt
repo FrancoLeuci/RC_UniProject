@@ -1,0 +1,19 @@
+em: uni.rc290@gmail.com
+ps: Mr*Vip290
+NodeMailer: hwwo gzex ksjq hwjm
+
+
+Name_Proj: SendMailFunction
+
+ID_Proj: sendmailfunction-190825
+
+ID_Client:
+905666614685-ho66l2l4u6avgk2g6rl5mfnetbah0tuq.apps.googleusercontent.com
+
+Client_Secret: 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
+
+Auth_code: 
+4/0AVMBsJhOUOdnD8rTCwTPpK7BoxZkZz5bSa-UHlCsycVbEoSMPE7syLSi0wAPA-0DNCbcKQ
+
+Refresh_token:
+1//04aWB_3vhVVsaCgYIARAAGAQSNwF-L9IrMCFqohD_YjaZKdGk9YeGYk9h0A2fQyOs1P5aJ2vhbVd5L6zKIU5lxyCM3BZDZ6f6Z64

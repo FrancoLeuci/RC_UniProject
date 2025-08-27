@@ -1,6 +1,6 @@
 const express=require("express")
 const multer=require("multer")
-const {uploadFile}=require("../controller/mediaController")
+const {uploadFile, createTextFile, filterMedia, getMedia}=require("../controller/mediaController")
 const {verifyToken} = require('../middleware/authMiddleware')
 
 const router=express.Router();
@@ -22,5 +22,7 @@ const upload=multer({storage:storage})
 //devo pensare ai path specifici, se ce n'è bisogno.
 //Devo capire se funziona e come. Devo testare e devo passare al database
 router.post("/", verifyToken, upload.single("file"),uploadFile)
+
+router.post("/search", verifyToken, filterMedia)
 
 module.exports=router

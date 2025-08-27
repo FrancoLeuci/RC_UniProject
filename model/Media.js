@@ -27,6 +27,8 @@ const AbstractMediaSchema = new mongoose.Schema({
             required:true,
         },
 
+        description:String,
+
         tags:[String]
     },options);
 
@@ -42,14 +44,17 @@ const Video=Media.discriminator("video",new mongoose.Schema({
     duration:Number,
     width:Number,
     height:Number,
+    codec:String,
 },options))
 
 const Audio=Media.discriminator("audio",new mongoose.Schema({
     duration:Number,
+    codec:String,
 },options))
 
 const pdf=Media.discriminator("pdf",new mongoose.Schema({
     pages:Number,
+    info: Object  //titolo, creator,
 },options))
 
 const Text=Media.discriminator("text",new mongoose.Schema({
