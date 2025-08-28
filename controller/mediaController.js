@@ -179,11 +179,14 @@ async function createTextFile(req,res){
 }
 
 async function filterMedia(req, res){
+
     let {search} = req.body;
     const userId = req.user.id;
     if(Array.isArray(search)){
+        //Caso array
         search = search.map(m => m.toLowerCase())
     } else {
+        //Caso di un solo elemento
         search = search.toLowerCase();
     }
 
@@ -203,7 +206,7 @@ async function filterMedia(req, res){
             element = element.filter(((tag,i) => {
                 console.log(i)
                 return tag!==false
-            }))
+            })) // [[true, true]]
             return element
         }))
         console.log(list)
@@ -238,5 +241,25 @@ async function getMedia(req, res){
     }catch(err){
         res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - getMedia"})
     }
+}
+
+async function getMediaByName(req,res){
+
+
+    try{
+        const {mediaName}=req.body
+        if(!mediaName){
+            res.status(400).send("Field Name is required.")
+        }
+        const mediaList=await Media.find({filename:mediaName})
+        if(!mediaList){
+            res.status(404).send("No media found under the name "+mediaName);
+        }
+        res.status(200).json({ok:true,mediaList})
+    }catch(err){
+        console.log("Error in mediaController, getMediaByName ");
+
+    }
+
 }
 module.exports={uploadFile, createTextFile, filterMedia, getMedia}

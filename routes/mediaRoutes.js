@@ -13,6 +13,7 @@ const storage=multer.diskStorage({
         //sto mantenendo il nome originale
         //serve un controllo, nel caso esista già un file con lo stesso nome nel dataBase,
         //è sufficiente dargli un numero tra parentesi
+
         cb(null, file.originalname)
     }
 })
