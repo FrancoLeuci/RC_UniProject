@@ -1,8 +1,10 @@
 const {Media, Image,Video,Audio,pdf,Text}=require("../model/Media");
-const sizeOf=require("image-size");
+const sizeOf=require("image-size").default;
 const ffmpeg = require("fluent-ffmpeg");
 const pdfParse = require("pdf-parse");
 const fs=require("fs");
+ffmpeg.setFfmpegPath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffmpeg.exe")
+ffmpeg.setFfprobePath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffprobe.exe");
 
 
 function handleTextFile(file){
@@ -24,8 +26,7 @@ async function getPdfMetadata(path){
 }
 
 //funzione che rende asincrona la ricerca dei metadata dei video e degli audio con ffmpeg
-ffmpeg.setFfmpegPath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffmpeg.exe");
-ffmpeg.setFfprobePath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffprobe.exe");
+
 function ffprobeAsync(path) {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(path, (err, metadata) => {
@@ -40,10 +41,10 @@ async function uploadFile(req,res){
     try{
         const file=req.file //multer mette qui il file
         const path=req.file.path;
-        //dalla req prende i campi description e tags. Possono anche essere vuoti dal momento che non sono required nel db
+        //Dalla req prende i campi description e tags. Possono anche essere vuoti dal momento che non sono required nel db
         //description è un semplice stringa e lo posso mettere direttamente in media
         //TODO:FRONTEND tags è una stringa che contiene stringhe separate da virgole
-        const {description,tagsString}=req.body;
+        const {description,tagsString,copyright}=req.body;
 
         console.log("FILE PRESO DA REQ.FILE: ", file)
         console.log("MIMETYPE: ", file.mimetype)
@@ -56,7 +57,8 @@ async function uploadFile(req,res){
             size: sizeString,
             url: `/uploads/${file.filename}`, // qui locale, in cloud sarebbe un URL pubblico
             uploadedBy: req.user.id,
-            description
+            description,
+            copyright
         }
         if(tagsString){
             const lowertags=tagsString.toLowerCase(); //tutto lowercase, salvini non ha mai avuto buone idee
@@ -66,12 +68,10 @@ async function uploadFile(req,res){
                 tags:tags,
             }
         }
-
-
         let kind= "file";
-
         if (file.mimetype.startsWith("image/")) {
-            const {width,height} = sizeOf(path);
+            const buffer=fs.readFileSync(path)
+            const {width,height} = sizeOf(buffer)
             kind = "image";
             media ={...media, width, height};
             await Image.create(media)
@@ -144,28 +144,18 @@ async function uploadFile(req,res){
 //deve passare per il verifytoken
 async function createTextFile(req,res){
     try{
-        const {fileTitle,fileContent}=req.body;
+        const {fileTitle,fileContent,fileType}=req.body;
 
-
-        const lower = fileContent.toLowerCase();
-        let mime="plain"
-        if (/<[a-z][\s\S]*>/i.test(fileContent)) {
-            mime="html";
-        }else if (
-            /^#{1,6}\s/m.test(lower) ||     // titoli markdown
-            /\*\*[^\*]+\*\*/.test(lower) || // bold
-            /\[[^\]]+\]\([^)]+\)/.test(lower) // link
-        ) mime="markdown";
 
         let media={
             kind:"text",
             filename: fileTitle,
-            mimetype:"text/"+mime,
+            mimetype:"text/"+fileType,
             size: Buffer.byteLength(fileContent, 'utf8'),
             url: `/uploads/${fileTitle}`, // qui locale, in cloud sarebbe un URL pubblico
             uploadedBy: req.user.id,
             textContent:fileContent,
-            format:mime
+            format:fileType
         }
         await Text.create(media)
         res.status(201).json({ok:true,message:"Text File created.",media});
@@ -243,17 +233,20 @@ async function getMedia(req, res){
     }
 }
 
+//Inutile, poichè il frontend ha già avuto tutti i media dell'utente. Frontend può cercare all'interno dello stesso
+//array fornito dal backend.
+
 async function getMediaByName(req,res){
 
 
     try{
         const {mediaName}=req.body
         if(!mediaName){
-            res.status(400).send("Field Name is required.")
+            return res.status(400).send("Field Name is required.")
         }
         const mediaList=await Media.find({filename:mediaName})
         if(!mediaList){
-            res.status(404).send("No media found under the name "+mediaName);
+            return res.status(404).send("No media found under the name "+mediaName);
         }
         res.status(200).json({ok:true,mediaList})
     }catch(err){
@@ -262,4 +255,31 @@ async function getMediaByName(req,res){
     }
 
 }
-module.exports={uploadFile, createTextFile, filterMedia, getMedia}
+
+async function removeMedia(req,res){
+    const mediaId=req.params.mediaId;
+    const userId=req.user.id;
+    if(!mediaId){
+        return res.status(400).json({ok:false, message:"No media to remove in the request params."})
+    }
+
+    try{
+        const mediaToRemove=await Media.findById(mediaId)
+        if(!mediaToRemove){
+            return res.status(404).json({ok:false,message:"File not found."});
+        }
+
+        if(String(mediaToRemove.uploadedBy)===userId){
+            //eliminazione dal set
+            await Media.findByIdAndDelete(mediaId);
+            return res.status(200).json({ok:true,message:"File cancellato da tutti i set e dal server. "});
+        }
+        res.status(401).json({ok:false,message:"Not Authorized. You can Only delete the files you have uploaded. "})
+
+    }catch(err){
+        res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - removeMedia"});
+    }
+}
+
+
+module.exports={uploadFile, createTextFile, filterMedia, getMedia, removeMedia}

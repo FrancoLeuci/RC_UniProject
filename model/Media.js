@@ -9,28 +9,30 @@ const options={discriminatorKey:"kind",timestamps:true}
 
 const AbstractMediaSchema = new mongoose.Schema({
 
-        filename:{
-            type:String,
-            required:true,
-        },
+    filename:{
+        type:String,
+        required:true,
+    },
+    mimetype:{
+        type:String,
+        required:true
+    },
+    url:{type:String,required:true},
+    size:{type:String,require:true},
+    uploadedBy:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:basicUser,
+        required:true,},
 
-        mimetype:{
-            type:String,
-            required:true
-        },
+    description:String,
 
-        url:{type:String,required:true},
-        size:{type:String,require:true},
-        uploadedBy:{
-            type:mongoose.Schema.Types.ObjectId,
-            ref:basicUser,
-            required:true,
-        },
+    tags:[String],
+        
+    openKeywords:[String],
 
-        description:String,
+    copyright: {type: String, required: true}
 
-        tags:[String]
-    },options);
+},options);
 
 const Media=mongoose.model('Media', AbstractMediaSchema)
 
