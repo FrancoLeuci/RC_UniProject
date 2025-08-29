@@ -23,7 +23,8 @@ const setSchema=new mongoose.Schema({
         enum:["public","website","private"],
         default:"private"
     },
-//array che specifica porcoddio
+//array che specifica cosa possono fare gli altri utenti(al di fuori del creatore)
+
     otherUsersPermissions:[{
         user:{
             type:mongoose.Schema.Types.ObjectId,
@@ -31,15 +32,16 @@ const setSchema=new mongoose.Schema({
         },
         canEditSet:{
             type:Boolean,
+            required:true,
             default:false
         }
     }],
 
-    portalsSharedWith:{
+    portalsSharedWith:[{
         type:mongoose.Schema.Types.ObjectId,
         ref:portals,
         //ponte sullo stretto di messina
-    },
+    }],
 
     mediaList:[{
         type:mongoose.Schema.Types.ObjectId,
