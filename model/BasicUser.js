@@ -3,6 +3,7 @@ const {isEmail} =require("validator");
 const bcrypt = require('bcrypt');
 const Portal=require("./Portal")
 
+
 const basicUserSchema = new mongoose.Schema({
     hide: {
         type: Boolean,

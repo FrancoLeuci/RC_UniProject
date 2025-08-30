@@ -1,6 +1,7 @@
 const Set = require("../model/Set")
 const {Media} = require("../model/Media")
 const mongoose=require("mongoose")
+const basicUser=require("../model/BasicUser");
 
 async function createSet(req, res){
 
@@ -74,9 +75,6 @@ async function addFiles(req, res){
 
         const mediaToAdd = await Media.findById(req.params.mediaId)
 
-
-
-
         if(!mediaToAdd){
             return res.status(404).json({ok:false,message:"Media not found. "})
         }else if(!(String(mediaToAdd.uploadedBy===req.user.id))){
@@ -141,13 +139,43 @@ async function removeFiles(req, res){
 
 async function getSet(req,res){
     const setId=req.params.setId;
+    const userId=req.user.id;
     try{
         const setToShow=await Set.findById(setId);
         if(!setToShow){
             console.log("LOG: ERRORE IN GETSET, NON TROVA IL SET TO SHOW. ")
             return res.status(404).json({ok:false,message:"Set not found. "})
         }
-        res.json(setToShow.mediaList)
+        const istheCreator=String(setToShow.creator)===userId;
+
+
+        const hasPermission = setToShow.otherUsersPermissions.some(
+            perm => perm.user.toString() === userId
+        );
+        if(istheCreator||hasPermission){
+            console.log("CREATORE DEL SET oppure \"membro\". ")
+            return res.json({ok:true,set:setToShow.mediaList})
+        }
+        const userInfo=await basicUser.findById(userId);
+        const userPortals=userInfo.portals;
+
+        //per ogni elemento del primo itera sugli elementi del secondo
+        //(per ogni portale con cui è condivide il set controlla se sta nella lista
+        //di portali dell'utente, ha senso)
+
+        console.log("SETPORTALS: ", setToShow.portalsSharedWith)
+        console.log("USERPORTALS: ", userPortals)
+        const isShared = setToShow.portalsSharedWith.some(
+            port=> userPortals.some(userport=>String(port)===(String(userport)))
+        );
+
+        if(isShared){
+            console.log("Membro di un portale con il quale è stato condiviso il set.")
+            return res.json({ok: true, set: setToShow.mediaList})
+        }
+
+        console.log("NON è Nè UN UTENTE AUTORIZZATO, Nè PARTE DEL PORTALE, Nè IL CREATORE. ")
+        res.status(401).json({message:"Not authorized. Only authorized members can access the set. "})
     }catch(err){
         console.log("LOG: ERRORE INTERNO SETCONTROLLER - GETSET")
         res.status(500).send("Errore interno. set controller - getset.")

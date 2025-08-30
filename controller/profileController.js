@@ -88,24 +88,24 @@ async function editPassword(req, res){
     try{
         const user = await BasicUser.findById(userId);
         if(!newPass){
-            return res.status(400).json({message: 'Missing new password'})
+            return res.status(400).json({message: 'Missing new password.'})
         }
         if(!conNewPass){
-            return res.status(400).json({message: 'Missing confirm password'})
+            return res.status(400).json({message: 'Missing confirm password.'})
         }
 
         if(newPass!==conNewPass){
-            return res.status(400).json({error: "Confirm password don't match"})
+            return res.status(400).json({error: "Confirm password doesn't match."})
         }
 
         user.password = newPass;
 
         await user.save()
 
-        res.status(200).json({ok: true, message: 'Password change successfully'})
+        res.status(200).json({ok: true, message: 'Password changed successfully. '})
     } catch(err){
         console.error(err.message);
-        res.status(500).json({error: "Internal Server Error"})
+        res.status(500).json({error: "Internal Server Error. "})
     }
 }
 

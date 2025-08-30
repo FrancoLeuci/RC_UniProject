@@ -68,27 +68,27 @@ async function addToPortal(req,res){
     const portal=req.portal;
     const newMemberId=req.params.id;
 
-    console.log(portal._id)
+    console.log(portal)
 
     try{
         if(portal.members.find(memberId=>String(memberId)===newMemberId)){
             return res.status(409).json({message: "User already a member of the Portal."});
+        }else{
+            portal.members.push(newMemberId);
+            await portal.save();
+
+            const newMember = await BasicUser.findById(newMemberId)
+            console.log(newMember)
+            newMember.portals.push(portal._id)
+            console.log(newMember.portals)
+            await newMember.save()
+
+            console.log("Componente aggiunto alla lista di membri del portale.")
+            return res.status(201).json({ok:true, message:"Added to the members list."})
         }
-
-        portal.members.push(newMemberId);
-        await portal.save();
-
-        const newMember = await BasicUser.findById(newMemberId)
-        console.log(newMember)
-        newMember.portals.push(portal._id)
-        console.log(newMember.portals)
-        await newMember.save()
-
-        console.log("Componente aggiunto alla lista di membri del portale.")
-        res.status(201).json({ok:true, message:"Added to the members list."})
     }catch(err){
         console.error(err);
-        res.status(500).send("Internal Server Error");
+        res.send("Internal Server Error");
     }
 }
 
