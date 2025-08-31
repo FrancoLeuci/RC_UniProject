@@ -87,6 +87,5 @@ async function getFollowedPortals(req,res){
     }
 }
 
-
-
 module.exports = {getFollowedUsers, getFollowedPortals}
+

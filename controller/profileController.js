@@ -109,4 +109,6 @@ async function editPassword(req, res){
     }
 }
 
+
+
 module.exports = {getProfile, editProfile, editPassword};

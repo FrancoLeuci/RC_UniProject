@@ -146,15 +146,17 @@ async function getSet(req,res){
             console.log("LOG: ERRORE IN GETSET, NON TROVA IL SET TO SHOW. ")
             return res.status(404).json({ok:false,message:"Set not found. "})
         }
+
         const istheCreator=String(setToShow.creator)===userId;
-
-
         const hasPermission = setToShow.otherUsersPermissions.some(
             perm => perm.user.toString() === userId
         );
+
+
         if(istheCreator||hasPermission){
             console.log("CREATORE DEL SET oppure \"membro\". ")
-            return res.json({ok:true,set:setToShow.mediaList})
+            const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
+            return res.json({ok:true,setMedias:mediaToShow})
         }
         const userInfo=await basicUser.findById(userId);
         const userPortals=userInfo.portals;
@@ -171,7 +173,8 @@ async function getSet(req,res){
 
         if(isShared){
             console.log("Membro di un portale con il quale è stato condiviso il set.")
-            return res.json({ok: true, set: setToShow.mediaList})
+            const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
+            return res.json({ok: true, setMedias: mediaToShow})
         }
 
         console.log("NON è Nè UN UTENTE AUTORIZZATO, Nè PARTE DEL PORTALE, Nè IL CREATORE. ")
@@ -205,11 +208,9 @@ async function deleteSet(req,res){
 
         await Set.findByIdAndDelete(setId)
         res.status(200).json({ok:true,message:"Set deleted. "})
-        
     }catch(err){
         console.log("LOG: ERRORE IN SETCONTROLLER - REMOVESET. ")
         res.status(500).send("Set not removed because of an error. ")
-
     }
 }
 module.exports = {createSet, modifySet, addFiles, removeFiles, deleteSet, getSet}

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const {isEmail} =require("validator");
 const bcrypt = require('bcrypt');
 const Portal=require("./Portal")
+const {pdf,Image}=require("../model/Media")
 
 
 const basicUserSchema = new mongoose.Schema({
@@ -100,8 +101,13 @@ const basicUserSchema = new mongoose.Schema({
 
     curriculumVitae: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Media"
+        ref: pdf
     }, //one to one cv
+
+    profilePicture:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref: Image
+    },
 
     // ricercatori che l'utente segue
     followedResearchers: [{
@@ -120,7 +126,6 @@ const basicUserSchema = new mongoose.Schema({
             //SHARE: TRUE APPARE QUANDO LA PERSONA CONDIVIDE SU INSTA...
         }
     }],
-
 
 
     followedPortals:[{
@@ -144,6 +149,7 @@ const basicUserSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
     }], // TODO: da testare dopo la creazione del modello Esposizione
+
 
 
 

@@ -3,6 +3,9 @@ const sizeOf=require("image-size").default;
 const ffmpeg = require("fluent-ffmpeg");
 const pdfParse = require("pdf-parse");
 const fs=require("fs");
+const BasicUser = require("../model/BasicUser");
+
+//setto da codice i percorsi per ffmpeg ffprobe
 ffmpeg.setFfmpegPath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffmpeg.exe")
 ffmpeg.setFfprobePath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffprobe.exe");
 
@@ -37,14 +40,23 @@ function ffprobeAsync(path) {
 }
 
 async function uploadFile(req,res){
+    const userId=req.user.id;
 
     try{
         const file=req.file //multer mette qui il file
         const path=req.file.path;
         //Dalla req prende i campi description e tags. Possono anche essere vuoti dal momento che non sono required nel db
         //description è un semplice stringa e lo posso mettere direttamente in media
-        //TODO:FRONTEND tags è una stringa che contiene stringhe separate da virgole
-        const {description,tagsString,copyright}=req.body;
+        //license di default è settata a "All rights reserved"
+        const {description,tagsString,copyright,license,isProfilePic,isCurriculumVitae}=req.body;
+        if(isProfilePic && !(file.mimetype.startsWith("image/"))){
+            return res.status(400).json({ok:false,message:"The file must be an Image. (Profile Picture)"})
+        }else if(isCurriculumVitae && !(file.mimetype === "application/pdf")){
+            return res.status(400).json({ok:false,message:"The file must be a pdf. (Curriculum Vitae"})
+        }
+
+        //is ProfilePic e isCurriculumVitae sono flag da aggiungere alle richieste isolate di aggiunta
+        // dell'immagine e del curriculum
 
         console.log("FILE PRESO DA REQ.FILE: ", file)
         console.log("MIMETYPE: ", file.mimetype)
@@ -56,9 +68,10 @@ async function uploadFile(req,res){
             mimetype:file.mimetype,
             size: sizeString,
             url: `/uploads/${file.filename}`, // qui locale, in cloud sarebbe un URL pubblico
-            uploadedBy: req.user.id,
+            uploadedBy: userId,
             description,
-            copyright
+            copyright,
+            license
         }
         if(tagsString){
             const lowertags=tagsString.toLowerCase(); //tutto lowercase, salvini non ha mai avuto buone idee
@@ -68,14 +81,20 @@ async function uploadFile(req,res){
                 tags:tags,
             }
         }
+
         let kind= "file";
         if (file.mimetype.startsWith("image/")) {
             const buffer=fs.readFileSync(path)
             const {width,height} = sizeOf(buffer)
             kind = "image";
             media ={...media, width, height};
-            await Image.create(media)
+            const newImageMedia=await Image.create(media)
             //TODO: con le altre cose
+            if(isProfilePic){
+                const currentUser=await BasicUser.findById(userId)
+                currentUser.profilePicture=newImageMedia._id;
+                await currentUser.save()
+            }
         }
         else if (file.mimetype.startsWith("video/")){
             kind = "video";
@@ -116,7 +135,12 @@ async function uploadFile(req,res){
                 info:meta.info,
             }
 
-            await pdf.create(media)
+            const newpdfMedia=await pdf.create(media)
+            if(isCurriculumVitae){
+                    const currentUser=await BasicUser.findById(userId)
+                    currentUser.curriculumVitae=newpdfMedia._id;
+                    await currentUser.save()
+            }
 
         }
         else if (file.mimetype.startsWith("text/")){
@@ -163,9 +187,6 @@ async function createTextFile(req,res){
         console.log("Errore in media Controller - createTextFiles.");
         res.status(500).send("Internal Error in mediaController - createTextFile")
     }
-
-
-
 }
 
 async function filterMedia(req, res){
@@ -224,8 +245,10 @@ async function getMedia(req, res){
     const userId = req.user.id
 
     try{
-        const media = await Media.find({uploadedBy: userId})
-
+        const user = await BasicUser.findById(userId)
+        let media = await Media.find({uploadedBy: userId})
+        //quando si vuole confrontare 2 ObjectId di mongoose è necessario utilizzare il metodo .equals() al posto dei classici operatori
+        media=media.filter(m => !m._id.equals(user.curriculumVitae) && !m._id.equals(user.profilePicture))
         res.status(200).json(media)
 
     }catch(err){
@@ -236,24 +259,9 @@ async function getMedia(req, res){
 //Inutile, poichè il frontend ha già avuto tutti i media dell'utente. Frontend può cercare all'interno dello stesso
 //array fornito dal backend.
 
-async function getMediaByName(req,res){
-
-
-    try{
-        const {mediaName}=req.body
-        if(!mediaName){
-            return res.status(400).send("Field Name is required.")
-        }
-        const mediaList=await Media.find({filename:mediaName})
-        if(!mediaList){
-            return res.status(404).send("No media found under the name "+mediaName);
-        }
-        res.status(200).json({ok:true,mediaList})
-    }catch(err){
-        console.log("Error in mediaController, getMediaByName ");
-
+async function getMediaById({mediaIdList,mediaId}) {
+    if(mediaIdList){
     }
-
 }
 
 async function removeMedia(req,res){
