@@ -2,6 +2,8 @@ const BasicUser = require("../../model/BasicUser");
 
 const FullUser = require("../../model/FullUser");
 
+const Notification = require("../../model/Notification");
+
 
 
 //Creazione di nuovi profili da zero: Nome, email (preferibilmente istituzionale)
@@ -71,21 +73,55 @@ async function addToPortal(req,res){
     console.log(portal)
 
     try{
-        if(portal.members.find(memberId=>String(memberId)===newMemberId)){
+
+
+        if(portal.members.find(memberId=>String(memberId)===newMemberId)||portal.admins.find(adminId=>String(adminId)===newMemberId)){
             return res.status(409).json({message: "User already a member of the Portal."});
         }else{
+            /*
             portal.members.push(newMemberId);
             await portal.save();
 
-            const newMember = await BasicUser.findById(newMemberId)
             console.log(newMember)
             newMember.portals.push(portal._id)
             console.log(newMember.portals)
             await newMember.save()
+            */
+            const newMember = await BasicUser.findById(newMemberId)
+            const portalAdmin=await BasicUser.findById(req.user.id)
+            //appariranno i bottoni di Accept e Decline
+            const userNotification=await Notification.create({
+                type:"portal.add",
+                sender:req.user.id,
+                receiver:newMemberId,
+                content:`${portalAdmin.realName} [Portal Admin] has invited ${newMember.realName} to become a member of the Portal. `,
+                status:"pending"
+            })
+            //apparirà il bottone di Cancel
+            const adminNotification=await Notification.create({
+                type:"portal.add",
+                receiver:req.user.id,
+                content:`You [Portal Admin] have invited ${newMember.realName} to become a member of the Portal. `,
+                status:"pending"
+            })
+            const adminBackLog = await Notification.create({
+                type:"portal.add",
+                receiver: req.user.id,
+                content: `You have invited ${newMember.realName} to become a member of the Portal.`,
+                status: "info"
+            })
+            const userBackLog = await Notification.create({
+                type:"portal.add",
+                receiver: newMemberId,
+                content: `${portalAdmin.realName} has invited you to become a member of the Portal.`,
+                status: "info"
+            })
+
 
             console.log("Componente aggiunto alla lista di membri del portale.")
             return res.status(201).json({ok:true, message:"Added to the members list."})
         }
+
     }catch(err){
         console.error(err);
         res.send("Internal Server Error");
