@@ -9,6 +9,8 @@ const followRoutes = require('./routes/followRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const setRoutes=require('./routes/setRoutes');
 
+const {errorHandler} = require("./middleware/errorMiddleware");
+
 const app = express();
 
 const Port = process.env.PORT || 5000;
@@ -21,6 +23,8 @@ app.use("/api", pageRoutes)
 app.use("/api/follow", followRoutes)
 app.use("/api/uploads",mediaRoutes)
 app.use("/api/set", setRoutes)
+
+app.use(errorHandler)
 
 dbCon().then(()=>{
     app.listen(Port, ()=>{

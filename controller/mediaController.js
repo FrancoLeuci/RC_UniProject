@@ -5,6 +5,8 @@ const pdfParse = require("pdf-parse");
 const fs=require("fs");
 const BasicUser = require("../model/BasicUser");
 
+const {HttpError} = require("../middleware/errorMiddleware");
+
 //setto da codice i percorsi per ffmpeg ffprobe
 ffmpeg.setFfmpegPath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffmpeg.exe")
 ffmpeg.setFfprobePath("C:/ffmpeg/ffmpeg-8.0-full_build/bin/ffprobe.exe");
@@ -39,7 +41,7 @@ function ffprobeAsync(path) {
     });
 }
 
-async function uploadFile(req,res){
+async function uploadFile(req,res,next){
     const userId=req.user.id;
 
     try{
@@ -50,9 +52,11 @@ async function uploadFile(req,res){
         //license di default è settata a "All rights reserved"
         const {description,tagsString,copyright,license,isProfilePic,isCurriculumVitae}=req.body;
         if(isProfilePic && !(file.mimetype.startsWith("image/"))){
-            return res.status(400).json({ok:false,message:"The file must be an Image. (Profile Picture)"})
+            throw new HttpError("The file must be an Image. (Profile Picture)",400)
+            //return res.status(400).json({ok:false,message:"The file must be an Image. (Profile Picture)"})
         }else if(isCurriculumVitae && !(file.mimetype === "application/pdf")){
-            return res.status(400).json({ok:false,message:"The file must be a pdf. (Curriculum Vitae"})
+            throw new HttpError("The file must be a pdf. (Curriculum Vitae)",400)
+            //return res.status(400).json({ok:false,message:"The file must be a pdf. (Curriculum Vitae"})
         }
 
         //is ProfilePic e isCurriculumVitae sono flag da aggiungere alle richieste isolate di aggiunta
@@ -161,12 +165,13 @@ async function uploadFile(req,res){
         console.log("MEDIA: ", media)
         res.status(201).json({ok:true,message:"File uploaded successfully. ", media});
     }catch(err){
-        console.log("Error in controller- mediaController- addMedia. :",err);
-        res.status(500).json({ok:false,message:"Upload Failed. "});
+        next(err)
+        //console.log("Error in controller- mediaController- addMedia. :",err);
+        //res.status(500).json({ok:false,message:"Upload Failed. "});
     }
 }
 //deve passare per il verifytoken
-async function createTextFile(req,res){
+async function createTextFile(req,res,next){
     try{
         const {fileTitle,fileContent,fileType}=req.body;
 
@@ -184,12 +189,13 @@ async function createTextFile(req,res){
         await Text.create(media)
         res.status(201).json({ok:true,message:"Text File created.",media});
     }catch(err){
-        console.log("Errore in media Controller - createTextFiles.");
-        res.status(500).send("Internal Error in mediaController - createTextFile")
+        next(err)
+        //console.log("Errore in media Controller - createTextFiles.");
+        //res.status(500).send("Internal Error in mediaController - createTextFile")
     }
 }
 
-async function filterMedia(req, res){
+async function filterMedia(req, res, next){
 
     let {search} = req.body;
     const userId = req.user.id;
@@ -205,7 +211,8 @@ async function filterMedia(req, res){
         const media = await Media.find({uploadedBy: userId})
 
         if(!media){
-            return res.status(404).json({message: "User don't have media"})
+            throw new HttpError("User don't have media",404)
+            //return res.status(404).json({message: "User don't have media"})
         }
 
         console.log(media, search)
@@ -237,11 +244,12 @@ async function filterMedia(req, res){
         res.status(200).json(list)
 
     }catch(err){
-        res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - filterMedia"})
+        next(err)
+        //res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - filterMedia"})
     }
 }
 
-async function getMedia(req, res){
+async function getMedia(req, res, next){
     const userId = req.user.id
 
     try{
@@ -252,29 +260,25 @@ async function getMedia(req, res){
         res.status(200).json(media)
 
     }catch(err){
-        res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - getMedia"})
+        next(err)
+        //res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - getMedia"})
     }
 }
 
-//Inutile, poichè il frontend ha già avuto tutti i media dell'utente. Frontend può cercare all'interno dello stesso
-//array fornito dal backend.
 
-async function getMediaById({mediaIdList,mediaId}) {
-    if(mediaIdList){
-    }
-}
-
-async function removeMedia(req,res){
+async function removeMedia(req,res,next){
     const mediaId=req.params.mediaId;
     const userId=req.user.id;
     if(!mediaId){
-        return res.status(400).json({ok:false, message:"No media to remove in the request params."})
+        throw new HttpError("No media to remove in the request params",400)
+        //return res.status(400).json({ok:false, message:"No media to remove in the request params."})
     }
 
     try{
         const mediaToRemove=await Media.findById(mediaId)
         if(!mediaToRemove){
-            return res.status(404).json({ok:false,message:"File not found."});
+            throw new HttpError("File not found",404)
+            //return res.status(404).json({ok:false,message:"File not found."});
         }
 
         if(String(mediaToRemove.uploadedBy)===userId){
@@ -282,10 +286,13 @@ async function removeMedia(req,res){
             await Media.findByIdAndDelete(mediaId);
             return res.status(200).json({ok:true,message:"File cancellato da tutti i set e dal server. "});
         }
-        res.status(401).json({ok:false,message:"Not Authorized. You can Only delete the files you have uploaded. "})
+
+        throw new HttpError("Not Authorized. You can only delete the files that you have uploaded",401)
+        //res.status(401).json({ok:false,message:"Not Authorized. You can Only delete the files you have uploaded. "})
 
     }catch(err){
-        res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - removeMedia"});
+        next(err)
+        //res.status(500).json({error: err.message, message: "Internal Server Error - mediaController - removeMedia"});
     }
 }
 

@@ -1,8 +1,8 @@
 const BasicUser = require("../../model/BasicUser");
-
 const FullUser = require("../../model/FullUser");
-
 const Notification = require("../../model/Notification");
+
+const {HttpError} = require("../../middleware/errorMiddleware");
 
 
 
@@ -13,21 +13,23 @@ const Notification = require("../../model/Notification");
 //pending requests
 
 
-async function newUser(req,res) {
+async function newUser(req,res,next) {
     const portal=req.portal;
     const {email, name, surname, password} = req.body;
 
     try {
 
         if (!email || !name || !surname || !password) {
-            return res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
+            throw new HttpError("Email, name, surname and password must be specified for new user creation.",400)
+            //return res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
         }
 
         const realName = `${name} ${surname}`;
 
         const emailUsed = await BasicUser.findOne({email: email})
         if (emailUsed) {
-            return res.status(409).json({message: 'An account associated with this email already exists.'})
+            throw new HttpError("An account associated with this email already exists.",409)
+            //return res.status(409).json({message: 'An account associated with this email already exists.'})
         }
 
         const alreadyUserByName = await BasicUser.findOne({realName: realName})
@@ -35,15 +37,17 @@ async function newUser(req,res) {
             const memberOfPortal = portal.members.find(memberId => memberId.equals(alreadyUserByName._id))
             const adminOfPortal = portal.admins.find(adminId => adminId.equals(alreadyUserByName._id));
             if (memberOfPortal || adminOfPortal) {
-                return res.status(409).json({
+                throw new HttpError("User with the same name is a member of the Portal",409)
+                /*return res.status(409).json({
                     error: "UserAlreadyInPortal",
                     message: "User with the same name is a member of the Portal."
-                })
+                })*/
             }
-            return res.status(409).json({
+            throw new HttpError("User already exists, but is not a member of the Portal",409)
+            /*return res.status(409).json({
                 error: "UserNameExistsAlready",
                 message: "User already exists, but is not a member of the Portal."
-            })
+            })*/
             //TODO: creare messaggio per la richiesta dell'admin all'utente di invito al portale
         }
 
@@ -61,33 +65,33 @@ async function newUser(req,res) {
 
         res.status(201).json({ok: true, message: "You created a new Account."})
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({error: "Internal Server Error"});
+        next(err)
+        //console.error(err.message);
+        //res.status(500).json({error: "Internal Server Error"});
     }
 }
 
-async function addToPortal(req,res){
+async function addToPortal(req,res,next){
     const portal=req.portal;
     const newMemberId=req.params.id;
 
     console.log(portal)
 
     try{
-
-
         if(portal.members.find(memberId=>String(memberId)===newMemberId)||portal.admins.find(adminId=>String(adminId)===newMemberId)){
-            return res.status(409).json({message: "User already a member of the Portal."});
+            throw new HttpError("User already a member of the Portal",409)
+            //return res.status(409).json({message: "User already a member of the Portal."});
         }else{
-            /*
-            portal.members.push(newMemberId);
+
+            /*portal.members.push(newMemberId);
             await portal.save();
 
             console.log(newMember)
             newMember.portals.push(portal._id)
             console.log(newMember.portals)
-            await newMember.save()
-            */
-            const newMember = await BasicUser.findById(newMemberId)
+            await newMember.save()*/
+
+            /*const newMember = await BasicUser.findById(newMemberId)
             const portalAdmin=await BasicUser.findById(req.user.id)
             //appariranno i bottoni di Accept e Decline
             const userNotification=await Notification.create({
@@ -115,7 +119,7 @@ async function addToPortal(req,res){
                 receiver: newMemberId,
                 content: `${portalAdmin.realName} has invited you to become a member of the Portal.`,
                 status: "info"
-            })
+            })*/
 
 
             console.log("Componente aggiunto alla lista di membri del portale.")
@@ -123,12 +127,13 @@ async function addToPortal(req,res){
         }
 
     }catch(err){
-        console.error(err);
-        res.send("Internal Server Error");
+        next(err)
+        //console.error(err);
+        //res.send("Internal Server Error");
     }
 }
 
-async function removeFromPortal(req,res){
+async function removeFromPortal(req,res,next){
     const portal=req.portal;
     const memberToRemoveId=req.params.id;
 
@@ -143,25 +148,29 @@ async function removeFromPortal(req,res){
             await userToRemove.save()
             console.log("Componente rimosso dalla lista di membri del portale.")
         } else {
-            return res.status(400).json({message: "L'utente non è membro del portale"})
+            throw new HttpError("User is not a member of the Portal",400)
+            //return res.status(400).json({message: "L'utente non è membro del portale"})
         }
 
 
         res.status(200).json({ok:true,message:"Deleted from the members list."})
     }catch(err){
-        console.error(err);
-        res.status(500).send("Internal Server Error");
+        next(err)
+        //console.error(err);
+        //res.status(500).send("Internal Server Error");
     }
 }
 
-async function editUser(req, res){
+async function editUser(req, res, next){
     const userId = req.params.id;
     const body = req.body;
 
     try{
         const user = await BasicUser.findById(userId);
-
-        if(!user){return res.status(404).json({message: "The user doesn't exist."})}
+        if(!user){
+            throw new HttpError("User not found",404)
+            //return res.status(404).json({message: "The user doesn't exist."})
+        }
 
         const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
 
@@ -193,7 +202,8 @@ async function editUser(req, res){
 
         //TODO: settings - da completare perchè presenta la questione degli annunci da vedere
         if(!body.language){
-            return res.status(400).json({message: "Select a language"})
+            throw new HttpError("Select a language",400)
+            //return res.status(400).json({message: "Select a language"})
         } else {
             user.settings.language = body.language
         }
@@ -209,12 +219,13 @@ async function editUser(req, res){
 
         res.status(200).json({ok:true,message:"User updated successfully."})
     }catch(err){
-        console.error(err);
-        res.status(500).json({error: "Internal Server Error"});
+        next(err)
+        //console.error(err);
+        //res.status(500).json({error: "Internal Server Error"});
     }
 }
 
-async function addToOtherPortal(req,res){
+async function addToOtherPortal(req,res,next){
     //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
     //del quale disponiamo dell'id (req.params.id)
     const portal=req.portal;
@@ -223,23 +234,26 @@ async function addToOtherPortal(req,res){
 
     try{
         if(!portal.members.find(memberId=>String(memberId)===userId)){
-            return res.status(401).json({message: "Not authorized to operate on this User."});
+            throw new HttpError("Not Authorized to operate on this User",401)
+            //return res.status(401).json({message: "Not authorized to operate on this User."});
         }
 
         if(otherPortal.members.find(memberId=>String(memberId)===userId)){
-            return res.status(409).json({message: "User already in this Portal."})
+            throw new HttpError("User already in this Portal",409)
+            //return res.status(409).json({message: "User already in this Portal."})
         }
 
         //manca implementazione super admin
 
     }catch(err){
-        console.log("Errore: ",err)
-        res.status(500).json({error: "An error occured while adding this user to another portal."})
+        next(err)
+        //console.log("Errore: ",err)
+        //res.status(500).json({error: "An error occured while adding this user to another portal."})
     }
 
 }
 
-async function getPortalMembers(req, res){
+async function getPortalMembers(req, res, next){
     const portal = req.portal
 
     try{
@@ -248,8 +262,9 @@ async function getPortalMembers(req, res){
         res.status(200).json({ok: true, data: users});
 
     }catch(err){
-        console.error(err);
-        res.status(500).json({error: "Internal Server Error"});
+        next(err)
+        //console.error(err);
+        //res.status(500).json({error: "Internal Server Error"});
     }
 }
 

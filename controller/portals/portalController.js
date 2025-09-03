@@ -1,5 +1,6 @@
+const {HttpError} = require("../../middleware/errorMiddleware");
 
-async function edit (req, res){
+async function edit (req, res, next){
     const body = req.body;
     const portal=req.portal;
 
@@ -8,31 +9,36 @@ async function edit (req, res){
         //TODO: logo vedere come importare file
 
         if(!body.name){
-            return res.status(400).json({message: 'Missing name'})
+            throw new HttpError("Name is required",400)
+            //return res.status(400).json({message: 'Missing name'})
         } else {
             portal.name = body.name
         }
 
         if(!body.url){
-            return res.status(400).json({message: 'Missing url of website'})
+            throw new HttpError("Url of the website is required",400)
+            //return res.status(400).json({message: 'Missing url of website'})
         } else {
             portal.url = body.url
         }
 
         if(!body.description){
-            return res.status(400).json({message: 'Missing description'})
+            throw new HttpError("Description is required",400)
+            //return res.status(400).json({message: 'Missing description'})
         } else {
             portal.description = body.description
         }
 
         if(!body.longDescription){
-            return res.status(400).json({message: 'Missing Long Description'})
+            throw new HttpError("Long Description is required",400)
+            //return res.status(400).json({message: 'Missing Long Description'})
         } else {
             portal.longDescription = body.longDescription
         }
 
         if(!body.viewText){
-            return res.status(400).json({message: 'Missing View Text'})
+            throw new HttpError("View Text is required",400)
+            //return res.status(400).json({message: 'Missing View Text'})
         } else {
             portal.viewText = body.viewText
         }
@@ -76,21 +82,22 @@ async function edit (req, res){
         res.status(200).json({ok: true, message: 'Portal modified successfully'})
 
     }catch(err){
-        console.error(err.message)
-        res.status(500).json({error: 'Internal Error Server'})
+        next(err)
+        //console.error(err.message)
+        //res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
-async function getAllInfo(req, res){
+async function getAllInfo(req, res, next){
     const portal = req.portal;
 
     try{
-
         res.status(200).json({ok: true, portal})
 
     }catch(err){
-        console.error(err.message)
-        res.status(500).json({error: 'Internal Server Error'})
+        next(err)
+        //console.error(err.message)
+        //res.status(500).json({error: 'Internal Server Error'})
     }
 }
 

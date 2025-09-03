@@ -6,6 +6,8 @@ const jwt = require('jsonwebtoken')
 const RefreshToken=require("../model/tokenModel")
 require('dotenv').config();
 
+const {HttpError} = require("../middleware/errorMiddleware");
+
 //TODO: LUCIA RICORDA DI DISATTIVARE AVG DEL CAZZO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const generateTokens=async (userID, roles)=>{
     let dataBase=true;
@@ -84,25 +86,30 @@ async function emailSender (email, id, resetKey){
             return await emailTransporter.sendMail(mailOptions)
         }
     }catch(err){
-        console.error("Failed to send email, retry", err.message);
+        throw new HttpError("Failed to send email", 500)
+        //console.error("Failed to send email, retry", err.message);
     }
 }
 
-async function register(req, res){
+async function register(req, res, next){
     const {surname,name,email,password,hide}=req.body;
 
     try{
         if(!surname){
-            return res.status(400).json({message: 'Missing surname'})
+            throw new HttpError("Surname is required",400)
+            //return res.status(400).json({message: 'Missing surname'})
         }
         if(!name){
-            return res.status(400).json({message: 'Missing name'})
+            throw new HttpError("Name is required",400)
+            //return res.status(400).json({message: 'Missing name'})
         }
         if(!email){
-            return res.status(400).json({message: 'Missing email address'})
+            throw new HttpError("Email address is required",400)
+            //return res.status(400).json({message: 'Missing email address'})
         }
         if(!password){
-            return res.status(400).json({message: 'Missing password'})
+            throw new HttpError("Password is requierd",400)
+            //return res.status(400).json({message: 'Missing password'})
         }
 
         const user=await BasicUser.create({
@@ -118,22 +125,25 @@ async function register(req, res){
         res.status(201).json({ok: true, message:"User successfully registered, check email"})
     } catch (err) {
         console.error(err.message);
-        res.status(500).json({error: "Internal Server Error"})
+        //res.status(500).json({error: "Internal Server Error"})
+        next(err)
     }
 }
 
-async function accountVerify(req, res){
+async function accountVerify(req, res, next){
     const id = req.params.id
 
     try{
         // verifica che l'utente esista nel DBn
         const user = await BasicUser.findById(id)
         if(!user){
-            return res.status(404).json({error: 'User not found'});
+            throw new HttpError("User not Found",404)
+            //return res.status(404).json({error: 'User not found'});
         }
 
         if(user.verified){
-            return res.status(208).json({message: 'Account already verified'});
+            throw new HttpError("Account already verified",208)
+            //return res.status(208).json({message: 'Account already verified'});
         }
 
         user.verified = true
@@ -143,36 +153,42 @@ async function accountVerify(req, res){
         res.status(200).json({ok: true, message:"Account is verified, now you can login"});
 
     }catch(err){
-        console.log(err.message);
-        res.status(500).json({error: "Internal Server Error"})
+        next(err)
+        //console.log(err.message);
+        //res.status(500).json({error: "Internal Server Error"})
     }
 }
 
-async function login(req, res){
+async function login(req, res, next){
     const {email, password} = req.body;
 
     try{
         // controllo body della richiesta
         if(!email){
-            return res.status(400).json({message: 'Missing email'})
+            throw new HttpError("Email is required",400)
+            //return res.status(400).json({message: 'Missing email'})
         }
         if(!password){
-            return res.status(400).json({message: 'Missing password'})
+            throw new HttpError("Password is required",400)
+            //return res.status(400).json({message: 'Missing password'})
         }
 
         const user = await BasicUser.findOne({email})
         if(!user){
-            return res.status(404).json({error: 'User not found'})
+            throw new HttpError("User not found",404)
+            //return res.status(404).json({error: 'User not found'})
         }
 
         const valid = await user.comparePassword(password)
         if(!valid){
-            return res.status(401).json({error: 'Incorrect password'})
+            throw new HttpError("Incorrect password",401)
+            //return res.status(401).json({error: 'Incorrect password'})
         }
 
         // verifico che l'account sia stato verificato
         if(!user.verified){
-            return res.status(401).json({error: 'Account not verified'})
+            throw new HttpError("Account not verified, check your email",401)
+            //return res.status(401).json({error: 'Account not verified'})
        }
 
         console.log(user._id)
@@ -202,12 +218,13 @@ async function login(req, res){
             accessToken
         })
     }catch(err){
-        console.error(err.message);
-        res.status(500).json({error: 'Internal Server Error'})
+        next(err)
+        //console.error(err.message);
+        //res.status(500).json({error: 'Internal Server Error'})
     }
 }
 
-async function logout(req, res){
+async function logout(req, res, next){
     const cookies=req.cookies;
 
     if(!cookies?.jwt){
@@ -229,23 +246,26 @@ async function logout(req, res){
         res.status(200).json({ok: true, message:'Logout effettuato con successo.'})
 
     }catch(err){
-        console.error(err.message)
-        return res.status(400).json({error: 'Internal Server Error'})
+        next(err)
+        //console.error(err.message)
+        //res.status(400).json({error: 'Internal Server Error'})
     }
 }
 
-async function resetPasswordRequest(req, res){
+async function resetPasswordRequest(req, res, next){
     const {email} = req.body;
 
     try{
         // controllo body della richiesta
         if(!email){
-            return res.status(400).json({message: 'Missing email'})
+            throw new HttpError("Email is required",400)
+            //return res.status(400).json({message: 'Missing email'})
         }
 
         const user = await BasicUser.findOne({email})
         if(!user){
-            return res.status(404).json({error: 'Email not valid, try again'})
+            throw new HttpError("Email not valid",404)
+            //return res.status(404).json({error: 'Email not valid, try again'})
         }
 
         //genero una stringa casuale per il campo passwordForgottenKey
@@ -259,23 +279,26 @@ async function resetPasswordRequest(req, res){
 
         res.status(200).json({ok: true, message: 'Check your email'})
     }catch(err){
-        console.error(err.message);
-        res.status(500).json({error: 'Missing password'})
+        next(err)
+        //console.error(err.message);
+        //res.status(500).json({error: 'Missing password'})
     }
 }
 
-async function resetPassword(req, res){
+async function resetPassword(req, res, next){
     const passwordForgottenKey = req.params.key;
     const {newPass} = req.body;
 
     try{
         const user = await BasicUser.findOne({passwordForgottenKey})
         if(!user){
-            return res.status(403).json({error: 'Link not valid'})
+            throw new HttpError("Link not valid",403)
+            //return res.status(403).json({error: 'Link not valid'})
         }
 
         if(!newPass){
-            return res.status(400).json({message: "New password is required"})
+            throw new HttpError("New password is required",400)
+            //return res.status(400).json({message: "New password is required"})
         }
 
         console.log(user.password)
@@ -288,8 +311,9 @@ async function resetPassword(req, res){
         res.status(200).json({ok: true, message:"Password successfully reset"})
 
     }catch(err){
-        console.error(err.message);
-        res.status(500).json({error: 'Internal Server Error'})
+        next(err)
+        //console.error(err.message);
+        //res.status(500).json({error: 'Internal Server Error'})
     }
 }
 

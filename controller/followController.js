@@ -1,6 +1,8 @@
 const BasicUser = require('../model/BasicUser');
 const Portal = require('../model/Portal')
 
+const {HttpError} = require("../middleware/errorMiddleware");
+
 //lista utenti che segui
 //lista portali che segui
 //visualizzazione in base alle 4 flag
@@ -9,13 +11,14 @@ const Portal = require('../model/Portal')
 
 
 //passa da verifyToken
-async function getFollowedUsers(req,res){
+async function getFollowedUsers(req,res,next){
     const userId=req.user.id;
 
     try{
         const userAccount= await BasicUser.findById(userId);
         if(!userAccount){
-            return res.status(404).json({error: "User Not Found."})
+            throw new HttpError("User not found",404)
+            //return res.status(404).json({error: "User Not Found."})
         }
 
         console.log(userAccount.followedResearchers)
@@ -43,18 +46,20 @@ async function getFollowedUsers(req,res){
 
         res.status(200).json({ok:true,validFollowedUserMap})
     }catch(err){
-        console.log("Error during user fetch in DB.")
-        res.status(500).json({error: "Internal Server Error - followController - getFollowedUsers."});
+        next(err)
+        //console.log("Error during user fetch in DB.")
+        //res.status(500).json({error: "Internal Server Error - followController - getFollowedUsers."});
     }
 }
 
-async function getFollowedPortals(req,res){
+async function getFollowedPortals(req,res,next){
     const userId=req.user.id;
 
     try{
         const userAccount= await BasicUser.findById(userId);
         if(!userAccount){
-            return res.status(404).json({error: "User Not Found."})
+            throw new HttpError("User not found",404)
+            //return res.status(404).json({error: "User Not Found."})
         }
 
         const portalMap=await Promise.all(userAccount.followedPortals.map(async (portal,i)=> {
@@ -82,8 +87,9 @@ async function getFollowedPortals(req,res){
 
         res.status(200).json({ok:true,validFollowedPortalMap})
     }catch(err){
-        console.log("Error during user fetch in DB.")
-        res.status(500).json({error: "Internal Server Error - followController - getFollowedPortals."});
+        next(err)
+        //console.log("Error during user fetch in DB.")
+        //res.status(500).json({error: "Internal Server Error - followController - getFollowedPortals."});
     }
 }
 
