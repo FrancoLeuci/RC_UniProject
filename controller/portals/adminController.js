@@ -1,6 +1,6 @@
 const BasicUser = require("../../model/BasicUser");
 const FullUser = require("../../model/FullUser");
-const Notification = require("../../model/Notification");
+const Request = require("../../model/Request");
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -74,6 +74,7 @@ async function newUser(req,res,next) {
 async function addToPortal(req,res,next){
     const portal=req.portal;
     const newMemberId=req.params.id;
+    const adminId = req.user.id
 
     console.log(portal)
 
@@ -82,7 +83,6 @@ async function addToPortal(req,res,next){
             throw new HttpError("User already a member of the Portal",409)
             //return res.status(409).json({message: "User already a member of the Portal."});
         }else{
-
             /*portal.members.push(newMemberId);
             await portal.save();
 
@@ -90,6 +90,28 @@ async function addToPortal(req,res,next){
             newMember.portals.push(portal._id)
             console.log(newMember.portals)
             await newMember.save()*/
+
+            const newMember = await BasicUser.findById(newMemberId)
+            if(!newMember){
+                throw new HttpError("User not found",404)
+            }
+
+            //1^ idea - tutti i portal_admin possono visualizzare le richieste in Collaboration del portale
+            /*await Request.create({
+                type: 'portal.addMember',
+                sender: portal._id, //<-
+                receiver: newMember._id,
+                content: `${portal.name} has invited ${newMember.realName} to become a member of the Portal`,
+                extra: portal._id
+            })*/
+            //2^ idea - solo il portal_admin che ha fatto la richiesta in Collaboration può visualizzarla
+            await Request.create({
+                type: 'portal.addMember',
+                sender: adminId, //<-
+                receiver: newMember._id,
+                content: `${portal.name} has invited ${newMember.realName} to become a member of the Portal`,
+                extra: portal._id
+            })
 
             /*const newMember = await BasicUser.findById(newMemberId)
             const portalAdmin=await BasicUser.findById(req.user.id)

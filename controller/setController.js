@@ -235,4 +235,32 @@ async function deleteSet(req,res,next){
         //res.status(500).send("Set not removed because of an error. ")
     }
 }
-module.exports = {createSet, modifySet, addFiles, removeFiles, deleteSet, getSet}
+
+async function mySetRepository(req,res,next){
+    const userId = req.user.id
+    try{
+
+        let mySets = await Set.find({})
+        let setsSharedWithMe = []
+
+        console.log(mySets)
+
+        mySets=mySets.map(set => {
+            console.log(set)
+            if(String(set.creator) === userId){
+                return set._id
+            } else if(set.otherUsersPermissions.some(obj=>String(obj.user)===userId)){
+                setsSharedWithMe.push(set._id)
+                return null
+            }
+        })
+        mySets=mySets.filter(set=>set!==null);
+
+        res.status(200).json({ok: true, mySets, setsSharedWithMe})
+    }catch(err){
+        next(err)
+        //console.log(err.message)
+    }
+}
+
+module.exports = {createSet, modifySet, addFiles, removeFiles, deleteSet, getSet, mySetRepository}

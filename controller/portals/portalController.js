@@ -1,4 +1,5 @@
 const {HttpError} = require("../../middleware/errorMiddleware");
+const Portal = require("../../model/Portal");
 
 async function edit (req, res, next){
     const body = req.body;
@@ -101,4 +102,16 @@ async function getAllInfo(req, res, next){
     }
 }
 
-module.exports = {edit, getAllInfo}
+async function getPortals(req, res, next){
+    try{
+        const portals = await Portal.find({"features.PROFILE": true})
+
+        res.status(200).json({ok: true, portals})
+    }catch(err){
+        next(err)
+        //console.error(err.message)
+        //res.status(500).json({error: 'Internal Error Server'})
+    }
+}
+
+module.exports = {edit, getAllInfo, getPortals}

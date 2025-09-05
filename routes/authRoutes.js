@@ -1,6 +1,6 @@
 const express = require('express');
 const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword} = require('../controller/userController')
-const {getProfile, editProfile, editPassword} = require('../controller/profileController')
+const {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic} = require('../controller/profileController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
 const router = express.Router();
@@ -16,5 +16,10 @@ router.put('/reset/:key', resetPassword)
 router.get('/profile', verifyToken, getProfile)
 router.put('/edit', verifyToken, editProfile)
 router.put('/editPassword', verifyToken, editPassword)
+
+// presi da pageRoutes
+router.get('/users', getAllUsers);
+router.post("/profile/:id", getUserView);
+router.get('/users/publicObject=1', getUserWithPublic);
 
 module.exports = router;

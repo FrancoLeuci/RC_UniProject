@@ -2,6 +2,8 @@
 const BasicUser = require('../model/BasicUser');
 
 const {HttpError} = require("../middleware/errorMiddleware");
+const Set = require("../model/Set");
+const FullUser = require("../model/FullUser");
 
 async function getProfile(req, res, next) {
     const userId = req.user.id;
@@ -124,6 +126,72 @@ async function editPassword(req, res, next){
     }
 }
 
+async function getAllUsers(req, res, next){
+    try{
+        const users = await BasicUser.find({verified: true})
 
+        res.status(200).json({ok: true, users})
+    }catch(err){
+        next(err)
+        //console.error(err.message)
+        //res.status(500).json({error: 'Internal Error Server'})
+    }
+}
 
-module.exports = {getProfile, editProfile, editPassword};
+async function getUserView(req, res, next){
+    //nella richiesta ci deve essere lo userId di chi fa la richiesta
+    //cioè di chi vuole vedere l'account dell'utente con id=profileId
+    const {userId} = req.body
+    const profileId = req.params.id
+
+    try{
+        const userInfo = await BasicUser.findById(profileId)
+        if(!userInfo){
+            throw new HttpError("User not found",404)
+        }
+
+        const userSets = await Set.find({creator: userInfo._id})
+
+        let viewSets = await Promise.all(userSets.map(async set => {
+            console.log(set.visibility)
+            if (set.visibility === "public") {
+                return set
+            } else if (set.visibility === "website" && userId) {
+                const viewer = await BasicUser.findById(userId)
+                if (viewer) {
+                    return set
+                } else {
+                    return null
+                }
+            } else {
+                return null
+            }
+        }))
+
+        console.log(viewSets)
+
+        viewSets = viewSets.filter(set => set!==null)
+        res.status(200).json({ok: true, userInfo, viewSets})
+
+    }catch(err){
+        next(err)
+        //res.status(500).json({error: err, message: 'Internal Error Server'})
+    }
+}
+
+async function getUserWithPublic(req, res, next){
+    try{
+        const fullUsers = await FullUser.find({hasPublicObjects: true})
+        const basicUsers = await Promise.all(
+            fullUsers.map(user => BasicUser.findById(user.basicCorrespondent))
+        )
+
+        res.json({ok: true, fullUsers, basicUsers})
+    }catch(err){
+        next(err)
+        //console.error(err.message)
+        //res.status(500).json({error: 'Internal Error Server'})
+    }
+}
+
+module.exports = {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic};

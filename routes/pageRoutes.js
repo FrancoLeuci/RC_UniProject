@@ -2,7 +2,7 @@ const express = require('express');
 const {getAllUsers, getUserWithPublic, getPortals, getUser, mySetRepository} = require('../controller/pageController')
 const {verifyToken} = require('../middleware/authMiddleware');
 
-const Portal = require('../model/Portal')
+//const Portal = require('../model/Portal')
 
 const router = express.Router();
 

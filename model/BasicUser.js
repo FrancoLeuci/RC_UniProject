@@ -10,6 +10,7 @@ const basicUserSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+
     email: {
         type: String,
         required: true,
@@ -17,14 +18,17 @@ const basicUserSchema = new mongoose.Schema({
         unique: true,
         lowercase: true
     },
+
     verified: { //flag per verifica dell'email
         type: Boolean,
         default: false
     },
+
     approved: {
         type: Boolean,
         default: false
     }, // da basic a full account
+
     password: {
         type: String,
         required: true,
@@ -39,6 +43,7 @@ const basicUserSchema = new mongoose.Schema({
     countryResidence: [{
         type: String
     }],
+
     countryCitizenship: [{
         type: String
     }],
@@ -53,21 +58,22 @@ const basicUserSchema = new mongoose.Schema({
         min:[1950,"Please insert a valid year of Birth."]
     },
 
-    // TODO: Relazioni da creare
     portals: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
     }],
-    // richieste utente in attesa di accettazione
+
+    /* richieste utente in attesa di accettazione
     pendingPortals: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
-    }],
+    }],*/
 
     roles: [{
         type: String,
         // admin e reviewer potrebbero essere ridondanti. Chiedere o controllare.
-        enum: ["super-admin", "portal-admin", "reviewer", "limited-user"],
+        //enum: ["super-admin", "portal-admin", "reviewer", "limited-user"],
+        enum: ["super-admin", "limited-user"],
         default: 'limited-user' //usato sia per basic che full user per i token
     }],
 
@@ -84,7 +90,6 @@ const basicUserSchema = new mongoose.Schema({
         },
         // puoi estendere in base al file PHP Settings.php
     },
-
 
     description: [
             {
@@ -127,7 +132,6 @@ const basicUserSchema = new mongoose.Schema({
         }
     }],
 
-
     followedPortals:[{
         followedPortalId:{
             type: mongoose.Schema.Types.ObjectId,
@@ -150,9 +154,6 @@ const basicUserSchema = new mongoose.Schema({
         ref: "Exposition"
     }], // TODO: da testare dopo la creazione del modello Esposizione
 
-
-
-
 },{timestamps:true});
 
 
@@ -160,6 +161,7 @@ basicUserSchema.pre("save",async function(next){
     if(!this.isModified('password')){
         return next();
     }
+
     try{
         const salt= await bcrypt.genSalt(10);
         this.password=await bcrypt.hash(this.password,salt);
@@ -172,6 +174,5 @@ basicUserSchema.pre("save",async function(next){
 basicUserSchema.methods.comparePassword=async function(candidatePw){
     return await bcrypt.compare(candidatePw,this.password);
 }
-
 
 module.exports = mongoose.model('BasicUser', basicUserSchema);

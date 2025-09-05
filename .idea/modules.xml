@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/RC_UniProject.iml" filepath="$PROJECT_DIR$/.idea/RC_UniProject.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/RC_UniProject_Branch.iml" filepath="$PROJECT_DIR$/.idea/RC_UniProject_Branch.iml" />
     </modules>
   </component>
 </project>

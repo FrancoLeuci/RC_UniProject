@@ -12,28 +12,6 @@ async function getAllUsers(req, res, next){
     try{
         const users = await BasicUser.find({verified: true})
 
-        /* per testare getUserWithPublic
-        const test = await Promise.all(
-            users.map(user => {
-                return FullUser.create({
-                    basicCorrespondent: user._id,
-                    hasPublicObjects: true
-                })
-            })
-        )*/
-
-        /*per testare followController
-        const user = await BasicUser.findById("68ac44824e06e5b341165eed")
-        console.log(user)
-        console.log(user.followedResearchers)
-        user.followedResearchers.push({
-            followedUserId: "68ac8991b68737160f81d781"
-        })
-        user.followedResearchers.push({
-            followedUserId: "68aca2114fcbb44f6ee7f011"
-        })
-        await user.save()*/
-
         res.status(200).json({ok: true, users})
     }catch(err){
         next(err)
