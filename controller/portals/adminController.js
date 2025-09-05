@@ -96,15 +96,6 @@ async function addToPortal(req,res,next){
                 throw new HttpError("User not found",404)
             }
 
-            //1^ idea - tutti i portal_admin possono visualizzare le richieste in Collaboration del portale
-            /*await Request.create({
-                type: 'portal.addMember',
-                sender: portal._id, //<-
-                receiver: newMember._id,
-                content: `${portal.name} has invited ${newMember.realName} to become a member of the Portal`,
-                extra: portal._id
-            })*/
-            //2^ idea - solo il portal_admin che ha fatto la richiesta in Collaboration può visualizzarla
             await Request.create({
                 type: 'portal.addMember',
                 sender: adminId, //<-

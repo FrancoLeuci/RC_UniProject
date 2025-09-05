@@ -116,38 +116,19 @@ const basicUserSchema = new mongoose.Schema({
 
     // ricercatori che l'utente segue
     followedResearchers: [{
-        followedUserId:{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "BasicUser"
-        },
-        options:{
-            share:{type:Boolean,default:true},
-            edit:{type:Boolean,default:true},
-            comment:{type:Boolean,default:true},
-            publication:{type:Boolean,default:true},
-            //PUBBLICATION: SE FALSE NON MOSTRA LE PUBBLICAZIONI
-            //EDIT: SE FALSE NON APPARE QUANDO VIENE MODIFICATA EXPO
-            //COMMENT: SE TRUE APPARE QUANDO LA PERSONA COMMENTA QUALCOSA
-            //SHARE: TRUE APPARE QUANDO LA PERSONA CONDIVIDE SU INSTA...
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BasicUser"
     }],
 
     followedPortals:[{
-        followedPortalId:{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: Portal
-        },
-        options:{
-            share:{type:Boolean,default:true},
-            edit:{type:Boolean,default:true},
-            comment:{type:Boolean,default:true},
-            publication:{type:Boolean,default:true},
-            //PUBBLICATION: SE FALSE NON MOSTRA LE PUBBLICAZIONI
-            //EDIT: SE FALSE NON APPARE QUANDO VIENE MODIFICATA EXPO
-            //COMMENT: SE TRUE APPARE QUANDO LA PERSONA COMMENTA QUALCOSA
-            //SHARE: TRUE APPARE QUANDO LA PERSONA CONDIVIDE SU INSTA...
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Portal"
     }],
+
+    /*
+    idPublic -> BasicUser -> followeResearch.include(idPublic) (idPublic = id di un utente) -> notifica inviata
+    idPublic -> BasicUser -> followedPortals.include(idPublic) (idPublic = id di un portale) -> notifica inviata
+     */
 
     favoritesExposition: [{
         type: mongoose.Schema.Types.ObjectId,

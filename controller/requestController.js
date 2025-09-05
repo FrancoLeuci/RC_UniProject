@@ -5,96 +5,86 @@ const Notification = require("../model/Notification");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
-// TODO: per il momento per i portali è valido solo per la 2^ soluzione e 1^ soluzione per le notifiche
-
-/*async function statusRequest(req, res, next) {
-    const userId = req.user.id
-    const requestId = req.params.reqId
-    try{
-        const request = await Request.findById(requestId)
-        if(!request){
-            throw new HttpError('Request not found',404)
-        }
-
-        if(request.receiver !== userId){
-            throw new HttpError('Not Authorized to accept the request',401)
-        }
-
-
-    }catch(err){
-        next(err);
-    }
-}*/
-
-
 // Richiesta HTTP svolta quando il destinatario della richiesta clicca su Accept
-async function acceptedRequest(req, res, next) {
+async function actionRequest(req, res, next) {
     const userId = req.user.id
     const requestId = req.params.reqId
+    const {action} = req.body //action può essere accepted, rejected o canceled
     try{
+        //controllo sul body
+        if(!action||!["accepted", "rejected", "canceled"].includes(action)) throw new HttpError('Action not valid!',400)
+
         //controllo sulla richiesta
         const request = await Request.findById(requestId)
-        if(!request){
-            throw new HttpError('Request not found',404)
-        }
+        if(!request) throw new HttpError('Request not found',404)
 
         const user = await BasicUser.findById(userId)
-        if(!user){
-            throw new HttpError('User not found',404)
-        }
-
-        console.log(request.receiver)
-        console.log(user._id)
         //controllo sull'utente
-        if(String(request.receiver) !== String(user._id)){
-            throw new HttpError('Not Authorized to accept the request',401)
+        if(action==="canceled"){ //cancellazione della richiesta
+            if(String(request.sender)!==String(user._id)) throw new HttpError('Not Authorized to cancel the request',401)
+        }else{ //accettare o rigettare la richiesta
+            if(String(request.receiver) !== String(user._id)) throw new HttpError(`Not Authorized to accept/reject the request`,401)
         }
-
-        //modifico lo status della richiesta da pending ad accepted
-        request.status = 'accepted'
-        await request.save()
 
         if(request.type==="portal.addMember"){
-            const portal = await Portal.findById(request.extra)
-            portal.members.push(user._id)
-            await portal.save()
+            if(action==="accepted"){
+                const portal = await Portal.findById(request.extra)
+                portal.members.push(user._id)
+                await portal.save()
 
-            user.portals.push(portal._id)
-            await user.save()
+                user.portals.push(portal._id)
+                await user.save()
+            }
         }
 
-        //creo la notifica per il mittente
-        await Notification.create({
-            receiver: request.sender,
-            content: `${user.realName} has accepted the request: ${request.content}`
-        })
+        if(action!=="canceled"){
+            //controllo se esiste già un oggetto Notification relazionato all'utente
+            //creo la notifica per il mittente
+            let notification = await Notification.findOne({receiver: request.sender})
+            console.log(notification)
+            if(notification){
+                console.log(notification.backlog)
+                notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)
+                console.log(notification.backlog)
+            } else {
+                await Notification.create({
+                    receiver: request.sender,
+                    backlog: `${user.realName} has ${action} the request: ${request.content}`
+                })
+            }
+            await notification.save()
 
-        //creo la notifica per il destinatario
-        await Notification.create({
-            receiver: request.receiver,
-            content: `You have accepted the request: ${request.content}`
-        })
+            //creo la notifica per il destinatario
+            notification = await Notification.findOne({receiver: request.receiver})
+            if(notification){
+                notification.backlog.push(`You have ${action} the request: ${request.content}`)
+            } else {
+                await Notification.create({
+                    receiver: request.receiver,
+                    backlog: `You have ${action} the request: ${request.content}`
+                })
+            }
+            await notification.save()
+
+            //creo la notifica visibile nel portale se serve
+            if(request.type.includes("portal")&&action!=="rejected"){
+                notification = await Notification.findOne({receiver: request.extra})
+                if(notification){
+                    notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)
+                } else {
+                    await Notification.create({
+                        receiver: request.extra,
+                        backlog: `${user.realName} has ${action} the request: ${request.content}`
+                    })
+                }
+                await notification.save()
+            }
+        }
 
         //elimino la richiesta dal DB
         await Request.findByIdAndDelete(request._id)
 
-        res.status(200).json({ok: true, message: 'Request has been accepted'})
-    }catch(err){
-        next(err);
-    }
-}
-
-async function rejectedRequest(req, res, next) {
-    try{
-
-    }catch(err){
-        next(err);
-    }
-}
-
-async function canceledRequest(req, res, next) {
-    try{
-
+        res.status(200).json({ok: true, message: `Request has been ${action}`})
     }catch(err){
         next(err);
     }
@@ -121,4 +111,4 @@ async function viewRequests(req, res, next){
     }
 }
 
-module.exports = {viewRequests, acceptedRequest, rejectedRequest, canceledRequest}
+module.exports = {viewRequests, actionRequest}

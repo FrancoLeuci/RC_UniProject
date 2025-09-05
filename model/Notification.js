@@ -1,68 +1,12 @@
 const mongoose=require("mongoose")
 const BasicUser=require("./BasicUser")
 
-/*
-TODO: 2^ versione - in BasicUser creare un array di stringhe a cui ad ogni notifica viene aggiunto un elemento
-e il frontend poi gestisce la visualizzazione => no nuovo Mongo object e di regola più leggero nel DB
- */
-
-//TODO: 1^ versione per il backlog
+//TODO: un singolo oggetto Notification per utente in cui saranno contenute tutte le stringhe delle notifiche
 const notificationSchema = new mongoose.Schema({
-    /*type: {
-        type: String,
-        required: true,
-        enum: [
-            // collaboration
-            "collaboration.add",
-            "collaboration.accept",
-            "collaboration.decline",
-            "collaboration.cancel",
-            "collaboration.leave",
-            "collaboration.add.editor",
-            "collaboration.admin.add",
-            "collaboration.admin.remove",
-            // portal
-            "portal.add",
-            "portal.request",
-            "portal.accepted",
-            "portal.declined",
-            // newsletter
-            "newsletter.approve",
-            // task
-            "task.add",
-            // ecc.
-        ],
-    },*/
+    receiver: { type: mongoose.Schema.Types.ObjectId},
 
-    //sender: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
-    receiver: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
-
-    content: { type: String }, // testo libero, se serve
-
-    // stato notifica
-    //read: { type: Boolean, default: false },
-
-    // per backlog o azioni
-    /*action: {
-        type: String,
-        enum: ["accepted", "declined", null],
-        default: null,
-    },*/
-
-    /*status: {
-        type: String,
-        enum: ["pending", "accepted", "declined", "cancelled","info"],
-        default: "pending",
-    },*/
-
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
-});
-
-// aggiornare automaticamente updatedAt
-notificationSchema.pre("save", function (next) {
-    this.updatedAt = Date.now();
-    next();
+    backlog: [{ type: String }], // per le richiesta
+    feed: [{type: String}], // per i follow
 });
 
 module.exports=mongoose.model("Notification", notificationSchema);

@@ -36,31 +36,8 @@ const requestSchema = new mongoose.Schema({
 
     extra: {type: mongoose.Schema.Types.ObjectId},
 
-    // stato notifica
-    //read: { type: Boolean, default: false },
-
-    // per backlog o azioni
-    /*action: {
-        type: String,
-        enum: ["accept", "decline", "cancel", null],
-        default: null,
-    },*/
-
-    status: {
-        type: String,
-        enum: ["pending", "accepted", "declined", "cancel"],
-        default: "pending",
-    },
-
     createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now },
 });
-
-// aggiornare automaticamente updatedAt
-/*requestSchema.pre("save", function (next) {
-    this.updatedAt = Date.now();
-    next();
-});*/
 
 module.exports=mongoose.model("Request", requestSchema);
 

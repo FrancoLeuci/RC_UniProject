@@ -1,10 +1,10 @@
 const express = require('express');
-const {viewRequests, acceptedRequest} = require('../controller/requestController')
+const {viewRequests, actionRequest} = require('../controller/requestController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
 const router = express.Router();
 
 router.get('/', verifyToken, viewRequests);
-router.put('/:reqId', verifyToken, acceptedRequest);
+router.put('/:reqId', verifyToken, actionRequest);
 
 module.exports = router
