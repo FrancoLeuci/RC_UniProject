@@ -1,5 +1,5 @@
 const express = require('express');
-const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword} = require('../controller/userController')
+const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember} = require('../controller/userController')
 const {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic} = require('../controller/profileController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
@@ -16,6 +16,8 @@ router.put('/reset/:key', resetPassword)
 router.get('/profile', verifyToken, getProfile)
 router.put('/edit', verifyToken, editProfile)
 router.put('/editPassword', verifyToken, editPassword)
+
+router.put('/portalRequest/:portalId', verifyToken, requestToBecomePortalMember)
 
 // presi da pageRoutes
 router.get('/users', getAllUsers);

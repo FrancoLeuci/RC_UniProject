@@ -1,9 +1,11 @@
 // controller che presente le funzionalità di gestione del profilo da parte di un utente
 const BasicUser = require('../model/BasicUser');
-
-const {HttpError} = require("../middleware/errorMiddleware");
 const Set = require("../model/Set");
 const FullUser = require("../model/FullUser");
+const Request = require("../model/Request");
+const Portal = require("../model/Portal");
+
+const {HttpError} = require("../middleware/errorMiddleware");
 
 async function getProfile(req, res, next) {
     const userId = req.user.id;

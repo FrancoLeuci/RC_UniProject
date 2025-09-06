@@ -35,6 +35,16 @@ async function actionRequest(req, res, next) {
                 user.portals.push(portal._id)
                 await user.save()
             }
+        } else if(request.type==="portal.requestToAccess"){
+            if(action==="accepted"){
+                const portal = await Portal.findById(request.extra)
+                portal.members.push(request.sender)
+                await portal.save()
+
+                const user2 = await BasicUser.findById(request.sender)
+                user.portals.push(portal._id)
+                await user.save()
+            }
         }
 
         if(action!=="canceled"){

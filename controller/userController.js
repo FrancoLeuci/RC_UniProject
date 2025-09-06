@@ -4,6 +4,8 @@ const {google} = require('googleapis');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken')
 const RefreshToken=require("../model/tokenModel")
+const Portal = require("../model/Portal")
+const Request = require("../model/Request");
 require('dotenv').config();
 
 const {HttpError} = require("../middleware/errorMiddleware");
@@ -317,4 +319,44 @@ async function resetPassword(req, res, next){
     }
 }
 
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword}
+async function requestToBecomePortalMember(req, res, next){
+    const userId = req.user.id
+    const portalId = req.params.portalId
+    try{
+        const portal = await Portal.findById(portalId)
+        if(!portal){
+            throw new HttpError("Portal not found",404)
+        }
+
+        const user = await BasicUser.findById(userId)
+
+        const existingRequest = await Request.findOne({
+            sender: user._id,
+            receiver: portal.admins[0],
+            type: 'portal.requestToAccess',
+            extra: portal._id
+        });
+
+        if (existingRequest) {
+            throw new HttpError("You have already requested access to this portal", 400);
+        }
+
+        if(portal.members.includes(user._id)||portal.admins.includes(user._id)){
+            throw new HttpError("You are already a member of the portal",400)
+        }
+
+        await Request.create({
+            sender: user._id,
+            receiver: portal.admins[0],
+            type: 'portal.requestToAccess',
+            content: `${user.realName} want to became a member of ${portal.name}`,
+            extra: portal._id
+        })
+
+        res.status(201).json({ok: true, message: "Request send successfully"})
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember}
