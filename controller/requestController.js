@@ -42,7 +42,7 @@ async function actionRequest(req, res, next) {
                 await portal.save()
 
                 const user2 = await BasicUser.findById(request.sender)
-                user.portals.push(portal._id)
+                user2.portals.push(portal._id)
                 await user.save()
             }
         }
