@@ -1,7 +1,5 @@
 const Portal=require("../model/Portal");
 
-
-
 async function portalAdminCheck(req,res,next){
     const adminId = req.user.id; //dalla verifica del token
     const portalId = req.params.portal; //nella richiesta
