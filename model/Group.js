@@ -16,6 +16,8 @@ const FullUser = require("./FullUser");
 const Portal = require("./Portal");
 const {Image} = require("./Media");
 
+//TODO: chiedere se inserire un'immagine come copertina del gruppo o se è superfluo
+
 const groupSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -31,9 +33,9 @@ const groupSchema = new mongoose.Schema({
         enum: ['private','website','public'],
         default: 'private'
     },
-    admins: [{
+    admins: [{ //possono essere scelti solo dai portal_admin
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'FullUser'
+        ref: FullUser
     }],
     members: [{
         type: mongoose.Schema.Types.ObjectId,

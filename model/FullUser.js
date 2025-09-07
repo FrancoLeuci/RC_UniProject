@@ -1,5 +1,7 @@
 const mongoose = require('mongoose')
+
 const BasicUser=require('./BasicUser')
+const Group = require('./Group')
 
 const fullUser= new mongoose.Schema({
     basicCorrespondent:{
@@ -23,7 +25,10 @@ const fullUser= new mongoose.Schema({
         default: false
     },
 
-    groups: [{ type: String }],
+    groups: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: Group
+    }],
 
     researches: [{
         type: mongoose.Schema.Types.ObjectId,

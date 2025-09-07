@@ -1,6 +1,7 @@
 const BasicUser = require("../../model/BasicUser");
 const FullUser = require("../../model/FullUser");
 const Request = require("../../model/Request");
+const Group = require("../../model/Group")
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -199,6 +200,7 @@ async function editUser(req, res, next){
     }
 }
 
+//TODO: è ancora da testare
 async function addToOtherPortal(req,res,next){
     //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
     //del quale disponiamo dell'id (req.params.id)
@@ -243,7 +245,23 @@ async function getPortalMembers(req, res, next){
 }
 
 async function createGroup(req, res, next){
+    const portal = req.portal
+    const {title, description} = req.body;
+    try{
+        //controllo sul body
+        if(!title) throw new HttpError('Title of the Group is required',400)
+        if(!description) throw new HttpError('Description of the Group is required',400)
 
+        await Group.create({
+            title,
+            description,
+            portal: portal._id
+        })
+
+        res.status(201).json({ok: true, message:'Group create successfully'})
+    }catch(err){
+        next(err)
+    }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal}
+module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal, createGroup}

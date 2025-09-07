@@ -1,9 +1,14 @@
 const BasicUser = require("../model/BasicUser");
+const FullUser = require("../model/FullUser");
 const Portal = require("../model/Portal");
+const Group = require("../model/Group");
 const Request = require("../model/Request");
 const Notification = require("../model/Notification");
 
 const {HttpError} = require("../middleware/errorMiddleware");
+
+//TODO: chiedere se sia per portali/gruppo, o cose simili, quando un utente invia la richiesta di voler diventare un membro, questa richiesta a chi arriva a un solo admin (casuale o meno) o a tutti gli admin?
+
 
 // Richiesta HTTP svolta quando il destinatario della richiesta clicca su Accept
 async function actionRequest(req, res, next) {
@@ -26,6 +31,7 @@ async function actionRequest(req, res, next) {
             if(String(request.receiver) !== String(user._id)) throw new HttpError(`Not Authorized to accept/reject the request`,401)
         }
 
+        //gestione richieste portali
         if(request.type==="portal.addMember"){
             if(action==="accepted"){
                 const portal = await Portal.findById(request.extra)
@@ -44,6 +50,29 @@ async function actionRequest(req, res, next) {
                 const user2 = await BasicUser.findById(request.sender)
                 user2.portals.push(portal._id)
                 await user.save()
+            }
+        }
+
+        //gestione richieste gruppi
+        if(request.type==="group.addMember"){
+            if(action==="accepted"){
+                const group = await Group.findById(request.extra)
+                group.members.push(user._id)
+                await group.save()
+
+                const fullUser = await FullUser.findOne({basicCorrespondent: user._id})
+                fullUser.groups.push(group._id)
+                await fullUser.save()
+            }
+        } else if(request.type==="group.requestToAccess"){
+            if(action==="accepted"){
+                const group = await Group.findById(request.extra)
+                group.members.push(request.sender)
+                await group.save()
+
+                const fullUser = await FullUser.findOne({basicCorrespondent: request.sender})
+                fullUser.groups.push(group._id)
+                await fullUser.save()
             }
         }
 
@@ -76,8 +105,8 @@ async function actionRequest(req, res, next) {
             }
             await notification.save()
 
-            //creo la notifica visibile nel portale se serve
-            if(request.type.includes("portal")&&action!=="rejected"){
+            //creo la notifica visibile nel portale/gruppo se serve
+            if((request.type.includes("portal")||(request.type.includes("group"))&&action!=="rejected")){
                 notification = await Notification.findOne({receiver: request.extra})
                 if(notification){
                     notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)

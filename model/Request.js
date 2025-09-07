@@ -21,6 +21,9 @@ const requestSchema = new mongoose.Schema({
             "portal.requestToAccess", //svolta dall'utente verso un portale
             "portal.accepted",
             "portal.declined",
+            // group
+            "group.addMember", //svolta dal gruppo verso un utente
+            "group.requestToAccess", //svolta dall'utente verso il gruppo
             // newsletter
             "newsletter.approve",
             // task
