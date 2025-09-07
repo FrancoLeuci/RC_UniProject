@@ -106,7 +106,7 @@ async function actionRequest(req, res, next) {
             await notification.save()
 
             //creo la notifica visibile nel portale/gruppo se serve
-            if((request.type.includes("portal")||(request.type.includes("group"))&&action!=="rejected")){
+            if((request.type.includes("portal")||(request.type.includes("group")))&&action!=="rejected"){
                 notification = await Notification.findOne({receiver: request.extra})
                 if(notification){
                     notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)

@@ -39,6 +39,7 @@ async function groupEdit(req, res, next){
     }
 }
 
+//TODO: chiedere se anche qui l'utente deve accettare una richiesta per divenire un admin o se solo un membro già del gruppo può divenire tale, e se un admin può fare parte di un gruppo
 //può essere svolta (per il momento) solo dai portal_admin
 //serve per aggiungere gli admin del gruppo
 async function addAdmin(req, res, next){
@@ -123,4 +124,42 @@ async function addMember(req, res, next){
     }
 }
 
-module.exports = {groupEdit, addAdmin, addMember}
+//eseguibile in base alla visibilità
+async function getPortal(req, res, next){
+    const {userId} = req.body;
+    const groupId = req.params.grId
+    try{
+        const group = await Group.findById(groupId)
+        if(!group){
+            throw new HttpError('Group not found', 404)
+        }
+
+
+        if(group.visibility === 'private'){
+            if(!userId) throw new HttpError('You are not Authorized',401)
+
+            const isMember = group.members.includes(userId)
+            if(!isMember){
+                let isAdmin = group.admins.includes(userId)
+                if(!isAdmin){
+                    const portal = await Portal.findById(group.portal)
+                    isAdmin = portal.admins.includes(userId)
+                    if(!isAdmin) throw new HttpError('You are not Authorized',401)
+                }
+            }
+            return res.status(200).json({ok: true, data: group})
+        } else if (group.visibility === 'website'){
+            if(!userId) throw new HttpError('You are not Authorized',401)
+
+            const isUser = await BasicUser.findById(userId)
+            if(!isUser) throw new HttpError('You are not Authorized',401)
+            return res.status(200).json({ok: true, data: group})
+        }
+
+        res.status(200).json({ok: true, data: group})
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {groupEdit, addAdmin, addMember, getPortal}

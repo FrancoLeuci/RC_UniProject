@@ -233,7 +233,7 @@ async function getPortalMembers(req, res, next){
     const portal = req.portal
 
     try{
-        const users = await Promise.all(portal.members.map(memeber => BasicUser.findById(member)))
+        const users = await Promise.all(portal.members.map(member => BasicUser.findById(member)))
 
         res.status(200).json({ok: true, data: users});
 
@@ -264,4 +264,54 @@ async function createGroup(req, res, next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal, createGroup}
+//funzione per visualizzare tutti i gruppi creati dal portale
+//TODO: vedere se serve
+/*async function getGroups(req, res, next){
+    const portal = req.portal
+    try{
+        const groups = await Group.find({portal: portal._id})
+
+        res.status(200).json({ok: true, data: groups});
+    }catch(err){
+        next(err);
+    }
+}*/
+
+async function deleteGroup(req, res, next){
+    const portal = req.portal
+    const groupId = req.params.grId;
+
+    try{
+        const group = await Group.findById(groupId)
+        if(!group) throw new HttpError("Group not found",404)
+
+        //controllo che il portale da cui è stata fatta la richiesta corrisponda a quello che ha creto il gruppo
+        if(!group.portal.equals(portal._id)) throw new HttpError('You are not Authorized',401)
+
+        //devo eliminare per ogni fullAccount di ogni membro e admin la referenza del gruppo
+        if(group.admins.length!==0){
+            await Promise.all(group.admins.map(async admin => {
+                const fullAccount = await FullUser.findOne({basicCorrespondent: admin})
+                const index = fullAccount.groups.findIndex(g => g.equals(group._id))
+                fullAccount.groups.splice(index,1)
+                await fullAccount.save()
+            }))
+        }
+        if(group.members.length!==0){
+            await Promise.all(group.members.map(async member => {
+                const fullAccount = await FullUser.findOne({basicCorrespondent: member})
+                const index = fullAccount.groups.findIndex(g => g.equals(group._id))
+                fullAccount.groups.splice(index,1)
+                await fullAccount.save()
+            }))
+        }
+
+        await Group.findByIdAndDelete(groupId)
+
+        res.status(200).json({ok: true, message:'Group deleted successfully'})
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal, createGroup, deleteGroup}

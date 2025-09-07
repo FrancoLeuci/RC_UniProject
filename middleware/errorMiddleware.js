@@ -6,15 +6,15 @@ function HttpError(message, statusCode) {
 }
 
 
-const errorHandler = (error, request, response) => {
+const errorHandler = (error, req, res, next) => {
 
     console.error('❌ Caught error:', error.message);
 
     if (error.name === 'HttpError' && error.statusCode) {
-        return response.status(error.statusCode).json({ error: error.message });
+        return res.status(error.statusCode).json({ error: error.message });
     }
 
-    return response.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'Internal Server Error' });
 }
 
 module.exports = {errorHandler, HttpError}

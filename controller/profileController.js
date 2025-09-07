@@ -4,6 +4,7 @@ const Set = require("../model/Set");
 const FullUser = require("../model/FullUser");
 const Request = require("../model/Request");
 const Portal = require("../model/Portal");
+const Group = require("../model/Group");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
@@ -196,4 +197,22 @@ async function getUserWithPublic(req, res, next){
     }
 }
 
-module.exports = {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic};
+async function getGroups(req, res, next){
+    const userId = req.user.id
+    try{
+        const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
+        if(!fullAccount){
+            throw new HttpError("User is not a full account",409)
+        }
+
+        console.log(fullAccount.groups)
+
+        const groups = await Promise.all(fullAccount.groups.map(async group => await Group.findById(group)))
+
+        res.status(200).json({ok: true, data: groups})
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups};
