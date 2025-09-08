@@ -2,6 +2,7 @@ const BasicUser = require("../../model/BasicUser");
 const FullUser = require("../../model/FullUser");
 const Request = require("../../model/Request");
 const Group = require("../../model/Group")
+const Notification = require("../../model/Notification");
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -127,6 +128,17 @@ async function removeFromPortal(req,res,next){
             //return res.status(400).json({message: "L'utente non è membro del portale"})
         }
 
+        //creo notifica che avvisa l'utente di essere stato rimosso dal portale
+        const notification = await Notification.findOne({receiver: memberToRemoveId})
+        if(notification){
+            notification.backlog.push(`You are removed from the portal ${portal.name}`)
+        } else {
+            await Notification.create({
+                receiver: memberToRemoveId,
+                backlog: `You are removed from the portal ${portal.name}`
+            })
+        }
+        await notification.save()
 
         res.status(200).json({ok:true,message:"Deleted from the members list."})
     }catch(err){
@@ -200,7 +212,7 @@ async function editUser(req, res, next){
     }
 }
 
-//TODO: è ancora da testare
+//TODO: chidere a F se ha senso tenerlo dato che il prof ha detto che basta 1 portale per ogni casistica e reputo strano che un admin possa chiedere che un utente diventi membro di un altro portale
 async function addToOtherPortal(req,res,next){
     //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
     //del quale disponiamo dell'id (req.params.id)
@@ -277,6 +289,7 @@ async function createGroup(req, res, next){
     }
 }*/
 
+//TODO: chiedere se un gruppo può essere eliminato quando è privo di membri e senza connections
 async function deleteGroup(req, res, next){
     const portal = req.portal
     const groupId = req.params.grId;
@@ -289,7 +302,8 @@ async function deleteGroup(req, res, next){
         if(!group.portal.equals(portal._id)) throw new HttpError('You are not Authorized',401)
 
         //devo eliminare per ogni fullAccount di ogni membro e admin la referenza del gruppo
-        if(group.admins.length!==0){
+        //TODO: le utilizzo se è vera la cosa di sopra
+        /*if(group.admins.length!==0){
             await Promise.all(group.admins.map(async admin => {
                 const fullAccount = await FullUser.findOne({basicCorrespondent: admin})
                 const index = fullAccount.groups.findIndex(g => g.equals(group._id))
@@ -304,7 +318,14 @@ async function deleteGroup(req, res, next){
                 fullAccount.groups.splice(index,1)
                 await fullAccount.save()
             }))
+        }*/
+        //TODO: la utilizzo se è falsa la cosa di sopra
+        if(group.admins.length!==0||group.members.length!==0){
+            throw new HttpError("You can't delete the group, until there are members and admins",400)
         }
+
+        //elimino l'oggetto Notifica legata ad esso
+        await Notification.deleteOne({receiver: group._id})
 
         await Group.findByIdAndDelete(groupId)
 

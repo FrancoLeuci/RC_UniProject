@@ -5,6 +5,7 @@ const BasicUser = require('../model/BasicUser');
 const FullUser = require('../model/FullUser');
 const Portal = require('../model/Portal');
 const Request = require('../model/Request');
+const Notification = require('../model/Notification');
 
 const {HttpError} = require('../middleware/errorMiddleware');
 
@@ -124,8 +125,65 @@ async function addMember(req, res, next){
     }
 }
 
+async function removeMember(req, res, next){
+    const userId = req.user.id;
+    const groupId = req.params.grId;
+    const memberId = req.params.id
+    try{
+        const group = await Group.findById(groupId)
+        if(!group) throw new HttpError('Group not found', 404);
+
+        const portal = await Portal.findById(group.portal)
+
+        if(group.members.includes(memberId)){
+            //se è un membro può essere eliminato sia da portal che da group admins
+            const isAdminG = group.admins.includes(userId)
+            const isAdminP = portal.admins.includes(userId)
+            if(isAdminG||isAdminP){
+                const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
+                memberFull.groups.splice(memberFull.groups.findIndex(group._id),1)
+                await memberFull.save()
+                group.members.splice(group.members.findIndex(userId),1)
+                await group.save()
+            } else {
+                throw new HttpError('You are not Authorized', 401)
+            }
+        } else if(group.admins.includes(memberId)){
+            //se è un admin può essere eliminato solo da un portal admin
+            const isAdminP = portal.admins.includes(userId)
+            if(isAdminP){
+                const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
+                memberFull.groups.splice(memberFull.groups.findIndex(group._id),1)
+                await memberFull.save()
+                group.admins.splice(group.admins.findIndex(userId),1)
+                await group.save()
+            } else {
+                throw new HttpError('You are not Authorized', 401)
+            }
+        } else {
+            throw new HttpError('The user is not a member/admin of the group', 400)
+        }
+
+        //creo notifica che avvisa l'utente di essere stato rimosso dal gruppo
+        const notification = await Notification.findOne({receiver: memberId})
+        if(notification){
+            notification.backlog.push(`You are removed from the group ${group.title}`)
+        } else {
+            await Notification.create({
+                receiver: memberId,
+                backlog: `You are removed from the group ${group.title}`
+            })
+        }
+        await notification.save()
+
+        res.status(200).json({ok: true, message:"The user is removed successfully from the group"})
+    }catch(err){
+        next(err)
+    }
+}
+
 //eseguibile in base alla visibilità
-async function getPortal(req, res, next){
+async function getGroup(req, res, next){
     const {userId} = req.body;
     const groupId = req.params.grId
     try{
@@ -162,4 +220,4 @@ async function getPortal(req, res, next){
     }
 }
 
-module.exports = {groupEdit, addAdmin, addMember, getPortal}
+module.exports = {groupEdit, addAdmin, addMember, getGroup, removeMember}

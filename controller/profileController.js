@@ -131,7 +131,7 @@ async function editPassword(req, res, next){
 
 async function getAllUsers(req, res, next){
     try{
-        const users = await BasicUser.find({verified: true})
+        const users = await BasicUser.find({verified: true, hide: false})
 
         res.status(200).json({ok: true, users})
     }catch(err){
@@ -152,11 +152,11 @@ async function getUserView(req, res, next){
         if(!userInfo){
             throw new HttpError("User not found",404)
         }
+        if(userInfo.hide) throw new HttpError("You are Not Authorized to view the profile",401)
 
         const userSets = await Set.find({creator: userInfo._id})
 
         let viewSets = await Promise.all(userSets.map(async set => {
-            console.log(set.visibility)
             if (set.visibility === "public") {
                 return set
             } else if (set.visibility === "website" && userId) {
@@ -171,11 +171,8 @@ async function getUserView(req, res, next){
             }
         }))
 
-        console.log(viewSets)
-
         viewSets = viewSets.filter(set => set!==null)
         res.status(200).json({ok: true, userInfo, viewSets})
-
     }catch(err){
         next(err)
         //res.status(500).json({error: err, message: 'Internal Error Server'})
@@ -204,8 +201,6 @@ async function getGroups(req, res, next){
         if(!fullAccount){
             throw new HttpError("User is not a full account",409)
         }
-
-        console.log(fullAccount.groups)
 
         const groups = await Promise.all(fullAccount.groups.map(async group => await Group.findById(group)))
 

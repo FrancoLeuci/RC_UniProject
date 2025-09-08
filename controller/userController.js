@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken')
 const RefreshToken=require("../model/tokenModel")
 const Portal = require("../model/Portal")
 const Request = require("../model/Request");
+const Group = require("../model/Group");
 require('dotenv').config();
 
 const {HttpError} = require("../middleware/errorMiddleware");
@@ -42,7 +43,6 @@ async function emailSender (email, id, resetKey){
         })
 
         const accessToken = await oAuth2Client.getAccessToken();
-        console.log(accessToken);
 
         // metodo per creare un oggetto Transport per l'invio dell'email
         const emailTransporter = nodemailer.createTransport({
@@ -57,11 +57,9 @@ async function emailSender (email, id, resetKey){
             },
         })
 
-        console.log(resetKey)
         if(resetKey===undefined){
             // URL usato dal client per verificare l'account
             const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/verification/${id}`;
-            console.log(verificationUrl)
 
             // oggetto in cui è descritta l'email che verrà inviata al client
             const mailOptions = {
@@ -75,7 +73,6 @@ async function emailSender (email, id, resetKey){
         } else {
             // URL usato dal client per resettare la password dell'account
             const verificationUrl = `http://localhost:${process.env.PORT||5000}/api/auth/reset/${resetKey}`;
-            console.log(verificationUrl)
 
             // oggetto in cui è descritta l'email che verrà inviata al client
             const mailOptions = {
@@ -120,13 +117,12 @@ async function register(req, res, next){
             password,
             hide
         })
-        console.log("UTENTE: ", user);
 
         await emailSender(user.email, user._id)
 
         res.status(201).json({ok: true, message:"User successfully registered, check email"})
     } catch (err) {
-        console.error(err.message);
+        //console.error(err.message);
         //res.status(500).json({error: "Internal Server Error"})
         next(err)
     }
@@ -193,12 +189,7 @@ async function login(req, res, next){
             //return res.status(401).json({error: 'Account not verified'})
        }
 
-        console.log(user._id)
-
         const {accessToken,refreshToken,dataBase}=await generateTokens(user._id, user.roles);
-        console.log(dataBase," ", refreshToken)
-        console.log("REFRESH: ", refreshToken)
-        console.log("ACCESS: ", accessToken)
         if(!dataBase){
             await RefreshToken.create({
                 token:refreshToken,
@@ -271,10 +262,7 @@ async function resetPasswordRequest(req, res, next){
         }
 
         //genero una stringa casuale per il campo passwordForgottenKey
-        const randomString = crypto.randomBytes(32).toString('hex');
-        console.log(randomString)
-
-        user.passwordForgottenKey = randomString;
+        user.passwordForgottenKey = crypto.randomBytes(32).toString('hex');
         await user.save();
 
         await emailSender(user.email,user.id,user.passwordForgottenKey)
@@ -303,8 +291,6 @@ async function resetPassword(req, res, next){
             //return res.status(400).json({message: "New password is required"})
         }
 
-        console.log(user.password)
-        console.log(user.passwordForgottenKey)
         user.password = newPass;
         user.passwordForgottenKey = undefined;
 
@@ -338,11 +324,11 @@ async function requestToBecomePortalMember(req, res, next){
         });
 
         if (existingRequest) {
-            throw new HttpError("You have already requested access to this portal", 400);
+            throw new HttpError("You have already requested access to this portal", 409);
         }
 
         if(portal.members.includes(user._id)||portal.admins.includes(user._id)){
-            throw new HttpError("You are already a member of the portal",400)
+            throw new HttpError("You are already a member of the portal",409)
         }
 
         await Request.create({
@@ -359,4 +345,47 @@ async function requestToBecomePortalMember(req, res, next){
     }
 }
 
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember}
+async function requestToBecomeGroupMember(req, res, next){
+    const userId = req.user.id
+    const groupId = req.params.grId
+    try{
+        const group = await Group.findById(groupId)
+        if(!group){
+            throw new HttpError("Group not found",404)
+        }
+
+        const user = await BasicUser.findById(userId)
+
+        //TODO
+        const existingRequest = await Request.findOne({
+            sender: user._id,
+            receiver: group.admins[0],
+            type: 'portal.requestToAccess',
+            extra: group._id
+        });
+
+        if (existingRequest) {
+            throw new HttpError("You have already requested access to this group", 409);
+        }
+
+        if(group.members.includes(user._id)||group.admins.includes(user._id)){
+            throw new HttpError("You are already a member of the group",409)
+        }
+
+        if(!user.approved) throw new HttpError("You do not have a full account",409);
+
+        await Request.create({
+            sender: user._id,
+            receiver: group.admins[0],
+            type: 'group.requestToAccess',
+            content: `${user.realName} want to became a member of ${group.title}`,
+            extra: group._id
+        })
+
+        res.status(201).json({ok: true, message: "Request send successfully"})
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember}

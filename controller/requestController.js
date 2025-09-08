@@ -129,9 +129,8 @@ async function actionRequest(req, res, next) {
     }
 }
 
-//Come verranno visualizzate le richieste nella pagina
+//Visualizzazione delle richieste
 async function viewRequests(req, res, next){
-    //const portal = req.portal
     const userId = req.user.id
     try{
         const user = await BasicUser.findById(userId)
@@ -142,12 +141,34 @@ async function viewRequests(req, res, next){
         const sendedRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
         const receivedRequests = await Request.find({receiver: user._id}) //verranno mostrati i pulsanti di Accept e Reject per la richiesta
 
-        const notifications = await Notification.find({receiver: user._id})
-
-        res.status(200).json({ok: true, send_requests: sendedRequests, rec_requests: receivedRequests, notif: notifications})
+        res.status(200).json({ok: true, send_requests: sendedRequests, rec_requests: receivedRequests})
     }catch(err){
         next(err)
     }
 }
 
-module.exports = {viewRequests, actionRequest}
+//Visualizzazione delle Notifiche
+async function viewNotifications(req, res, next){
+    const userId = req.user.id
+    const extraId = req.params.extra
+    try{
+        if(extraId){
+            const notifications = await Notification.findOne({receiver: extraId})
+            const portal = await Portal.findById(extraId)
+            const group = await Group.findById(extraId)
+            if((portal && portal.admins.includes(userId))||(group && group.admins.includes(userId))){
+                //controllo se l'utente che ha fatto la richiesta è un admin del portale
+                return res.status(200).json({ok: true, data: notifications})
+            } else {
+                throw new HttpError("You are Not Authorized to access", 401);
+            }
+        }
+
+        const notifications = await Notification.findOne({receiver: userId})
+        res.status(200).json({ok: true, data: notifications})
+    }catch(err){
+        next(err);
+    }
+}
+
+module.exports = {viewRequests, actionRequest, viewNotifications}
