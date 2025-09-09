@@ -10,7 +10,6 @@ async function createSet(req, res, next){
     try{
         const {setName}=req.body;
         if(!setName){
-            console.log("LOG: NOME DEL SET NON PRESENTE NELLA RICHIESTA DI CREAZIONE");
             throw new HttpError("Can't create a Set whitout a name.",400)
             //return res.status(400).json({ok:false,message:"Can't create a Set without a name. "})
         }
@@ -20,7 +19,6 @@ async function createSet(req, res, next){
             creator: req.user.id
         })
 
-        console.log("LOG: ISTRUZIONE DI CREATE SUL SET:" + set)
         res.status(201).json({ok: true, message: "Set created successfully"})
 
     }catch(err){
@@ -36,8 +34,6 @@ async function modifySet(req, res, next){
 
         const setToModify=await Set.findById(setId);
         if(!setToModify){
-            console.log("ERRORE NEL TROVARE IL SET DA MODIFICARE - MODIFYSET")
-            console.log("id del set cercato: ",setId)
             throw new HttpError("Set not found",404)
             //return res.status(401).json({ok:false,message:"Set not found. "})
         }
@@ -99,7 +95,6 @@ async function addFiles(req, res, next){
         );
         const isCreator=String(setToModify.creator)===req.user.id;
         if(!permission && !isCreator){
-            console.log("LOG: L'UTENTE NON PUò EDITARE E NON è CREATORE DEL SET");
             throw new HttpError("Forbidden - you can't add this item from the media set.",401)
             //res.status(401).json({ok:false,message:"Forbidden - you can't add this item from the media set. "})
         }
@@ -107,7 +102,7 @@ async function addFiles(req, res, next){
         setToModify.mediaList.push(req.params.mediaId);
 
         await setToModify.save();
-        res.status(201).json({ok:true,message:"Media added to the media set. "})
+        res.status(201).json({ok:true,message:"Media added to the media set."})
 
     }catch(err){
         next(err)
@@ -135,7 +130,6 @@ async function removeFiles(req, res, next){
         const permission=setToModify.otherUsersPermissions.includes({user:new mongoose.Types.ObjectId(userId),canEditSet:true})
         const isCreator=String(setToModify.creator)===userId;
         if(!permission && !isCreator){
-            console.log("LOG: L'UTENTE NON PUò EDITARE E NON è CREATORE DEL SET");
             throw new HttpError("Forbidden - you can't remove this item from the media set.",403)
             //return res.status(401).json({ok:false,message:"Forbidden - you can't remove this item from the media set. "})
         }
@@ -143,7 +137,7 @@ async function removeFiles(req, res, next){
         setToModify.mediaList.splice(setToModify.mediaList.indexOf(mediaToRemove),1);
 
         await setToModify.save();
-        res.status(201).json({ok:true,message:"Media removed from the media set. "})
+        res.status(201).json({ok:true,message:"Media removed from the media set."})
 
 
     }catch(err){
@@ -158,7 +152,6 @@ async function getSet(req,res,next){
     try{
         const setToShow=await Set.findById(setId);
         if(!setToShow){
-            console.log("LOG: ERRORE IN GETSET, NON TROVA IL SET TO SHOW. ")
             throw new HttpError("Set not found",404)
             //return res.status(404).json({ok:false,message:"Set not found. "})
         }
@@ -170,7 +163,6 @@ async function getSet(req,res,next){
 
 
         if(istheCreator||hasPermission){
-            console.log("CREATORE DEL SET oppure \"membro\". ")
             const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
             return res.json({ok:true,setMedias:mediaToShow})
         }
@@ -181,19 +173,15 @@ async function getSet(req,res,next){
         //(per ogni portale con cui è condivide il set controlla se sta nella lista
         //di portali dell'utente, ha senso)
 
-        console.log("SETPORTALS: ", setToShow.portalsSharedWith)
-        console.log("USERPORTALS: ", userPortals)
         const isShared = setToShow.portalsSharedWith.some(
             port=> userPortals.some(userport=>String(port)===(String(userport)))
         );
 
         if(isShared){
-            console.log("Membro di un portale con il quale è stato condiviso il set.")
             const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
             return res.json({ok: true, setMedias: mediaToShow})
         }
 
-        console.log("NON è Nè UN UTENTE AUTORIZZATO, Nè PARTE DEL PORTALE, Nè IL CREATORE. ")
         throw new HttpError("Not Authorized. Only authorized members can access to the set.",401)
         //res.status(401).json({message:"Not authorized. Only authorized members can access the set. "})
     }catch(err){
@@ -208,13 +196,11 @@ async function deleteSet(req,res,next){
     const setId=req.params.setId;
     try{
         if(!creatorId||!setId){
-            console.log("LOG: ERROR IN REMOVESET - SETCONTROLLER")
             throw new HttpError("Bad request - user Id or set Id missing in request",400)
             //return res.status(400).json({ok:false,message:"Bad request - user ID or set ID missing in request. "})
         }
         const setToRemove=await Set.findById(setId);
         if(!setToRemove){
-            console.log("LOG: IL SET NON ESISTE.")
             throw new HttpError("Set not found",404)
             //return res.status(404).json({ok:false, message:"Set Not Found. "})
         }
@@ -222,13 +208,12 @@ async function deleteSet(req,res,next){
         const istheCreator=String(setToRemove.creator)===creatorId;
         
         if(!istheCreator){
-            console.log("LOG:PROBLEMA COL CREATOR ID IN SETCONTROLLER DELETESET")
             throw new HttpError("Only the creator can delete the set",403)
             //return res.status(403).json({ok:false,message:"Only the creator can delete the set. "})
         }
 
         await Set.findByIdAndDelete(setId)
-        res.status(200).json({ok:true,message:"Set deleted. "})
+        res.status(200).json({ok:true,message:"Set deleted."})
     }catch(err){
         next(err)
         //console.log("LOG: ERRORE IN SETCONTROLLER - REMOVESET. ")

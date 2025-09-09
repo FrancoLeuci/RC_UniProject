@@ -53,7 +53,7 @@ async function addAdmin(req, res, next){
 
         const portal = await Portal.findById(group.portal)
         const isAdmin = portal.admins.includes(userId)
-        if(!isAdmin) throw new HttpError('You are not Authorized to edit the Group', 401)
+        if(!isAdmin) throw new HttpError('You are not Authorized', 401)
 
         //controllo sull'utente che viene aggiunto
         const newAdmin = await BasicUser.findById(newAdminId)
@@ -105,7 +105,7 @@ async function addMember(req, res, next){
         if(!newMember) throw new HttpError('User to add as member not exist', 404)
         if(portal.admins.includes(newMemberId)) throw new HttpError('User to add as member is an admin of the portal', 400)
         if(!portal.members.includes(newMemberId)) throw new HttpError('User to add as member is not a member of the portal', 400)
-        if(group.admins.includes(newMemberId)) throw new HttpError('The user is already an member of the group', 409)
+        if(group.admins.includes(newMemberId)) throw new HttpError('The user is already an admin of the group', 409)
         if(group.members.includes(newMemberId)) throw new HttpError('The user is already a member of the group', 409)
         const isFull = await FullUser.findOne({basicCorrespondent: newMemberId})
         if(!isFull||!newMember.approved) throw new HttpError('The user that you want to add as member does not have a full account', 400)
@@ -141,9 +141,9 @@ async function removeMember(req, res, next){
             const isAdminP = portal.admins.includes(userId)
             if(isAdminG||isAdminP){
                 const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
-                memberFull.groups.splice(memberFull.groups.findIndex(group._id),1)
+                memberFull.groups.splice(memberFull.groups.findIndex(g => g.equals(group._id)),1)
                 await memberFull.save()
-                group.members.splice(group.members.findIndex(userId),1)
+                group.members.splice(group.members.findIndex(u => u.equals(memberId)),1)
                 await group.save()
             } else {
                 throw new HttpError('You are not Authorized', 401)
@@ -153,9 +153,9 @@ async function removeMember(req, res, next){
             const isAdminP = portal.admins.includes(userId)
             if(isAdminP){
                 const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
-                memberFull.groups.splice(memberFull.groups.findIndex(group._id),1)
+                memberFull.groups.splice(memberFull.groups.findIndex(g => g.equals(group._id)),1)
                 await memberFull.save()
-                group.admins.splice(group.admins.findIndex(userId),1)
+                group.admins.splice(group.admins.findIndex(u => u.equals(memberId)),1)
                 await group.save()
             } else {
                 throw new HttpError('You are not Authorized', 401)
@@ -168,13 +168,13 @@ async function removeMember(req, res, next){
         const notification = await Notification.findOne({receiver: memberId})
         if(notification){
             notification.backlog.push(`You are removed from the group ${group.title}`)
+            await notification.save()
         } else {
             await Notification.create({
                 receiver: memberId,
                 backlog: `You are removed from the group ${group.title}`
             })
         }
-        await notification.save()
 
         res.status(200).json({ok: true, message:"The user is removed successfully from the group"})
     }catch(err){
@@ -194,7 +194,7 @@ async function getGroup(req, res, next){
 
 
         if(group.visibility === 'private'){
-            if(!userId) throw new HttpError('You are not Authorized',401)
+            if(!userId) throw new HttpError('Please, login',400)
 
             const isMember = group.members.includes(userId)
             if(!isMember){
@@ -207,10 +207,10 @@ async function getGroup(req, res, next){
             }
             return res.status(200).json({ok: true, data: group})
         } else if (group.visibility === 'website'){
-            if(!userId) throw new HttpError('You are not Authorized',401)
+            if(!userId) throw new HttpError('Please, login',400)
 
             const isUser = await BasicUser.findById(userId)
-            if(!isUser) throw new HttpError('You are not Authorized',401)
+            if(!isUser.verified) throw new HttpError('You are not Authorized',401)
             return res.status(200).json({ok: true, data: group})
         }
 

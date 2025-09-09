@@ -49,7 +49,7 @@ async function actionRequest(req, res, next) {
 
                 const user2 = await BasicUser.findById(request.sender)
                 user2.portals.push(portal._id)
-                await user.save()
+                await user2.save()
             }
         }
 
@@ -80,43 +80,40 @@ async function actionRequest(req, res, next) {
             //controllo se esiste già un oggetto Notification relazionato all'utente
             //creo la notifica per il mittente
             let notification = await Notification.findOne({receiver: request.sender})
-            console.log(notification)
             if(notification){
-                console.log(notification.backlog)
                 notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)
-                console.log(notification.backlog)
+                await notification.save()
             } else {
                 await Notification.create({
                     receiver: request.sender,
                     backlog: `${user.realName} has ${action} the request: ${request.content}`
                 })
             }
-            await notification.save()
 
             //creo la notifica per il destinatario
             notification = await Notification.findOne({receiver: request.receiver})
             if(notification){
                 notification.backlog.push(`You have ${action} the request: ${request.content}`)
+                await notification.save()
             } else {
                 await Notification.create({
                     receiver: request.receiver,
                     backlog: `You have ${action} the request: ${request.content}`
                 })
             }
-            await notification.save()
 
             //creo la notifica visibile nel portale/gruppo se serve
             if((request.type.includes("portal")||(request.type.includes("group")))&&action!=="rejected"){
                 notification = await Notification.findOne({receiver: request.extra})
                 if(notification){
                     notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)
+                    await notification.save()
                 } else {
                     await Notification.create({
                         receiver: request.extra,
                         backlog: `${user.realName} has ${action} the request: ${request.content}`
                     })
                 }
-                await notification.save()
             }
         }
 
@@ -134,9 +131,6 @@ async function viewRequests(req, res, next){
     const userId = req.user.id
     try{
         const user = await BasicUser.findById(userId)
-        if(!user){
-            throw new HttpError("User not found", 404);
-        }
 
         const sendedRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
         const receivedRequests = await Request.find({receiver: user._id}) //verranno mostrati i pulsanti di Accept e Reject per la richiesta
@@ -150,7 +144,7 @@ async function viewRequests(req, res, next){
 //Visualizzazione delle Notifiche
 async function viewNotifications(req, res, next){
     const userId = req.user.id
-    const extraId = req.params.extra
+    const {extraId} = req.body
     try{
         if(extraId){
             const notifications = await Notification.findOne({receiver: extraId})

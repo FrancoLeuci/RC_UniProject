@@ -24,7 +24,7 @@ router.put('/groupRequest/:grId', verifyToken, requestToBecomeGroupMember)
 
 // presi da pageRoutes
 router.get('/users', getAllUsers);
-router.post("/profile/:id", getUserView);
+router.get("/profile/:id", getUserView);
 router.get('/users/publicObject=1', getUserWithPublic);
 
 module.exports = router;

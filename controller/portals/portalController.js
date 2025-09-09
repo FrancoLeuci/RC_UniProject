@@ -1,5 +1,6 @@
-const {HttpError} = require("../../middleware/errorMiddleware");
 const Portal = require("../../model/Portal");
+
+const {HttpError} = require("../../middleware/errorMiddleware");
 
 async function edit (req, res, next){
     const body = req.body;
@@ -50,11 +51,11 @@ async function edit (req, res, next){
         }
 
         if(body.reviewers){
-            portal.reviewers.concat(body.reviewers)
+            portal.reviewers = body.reviewers
         }
 
         if(body.contactPersons){
-            portal.contactPersons.concat(body.contactPersons)
+            portal.contactPersons = body.contactPersons
         }
 
         if(body.externalContactPersons){
@@ -94,7 +95,6 @@ async function getAllInfo(req, res, next){
 
     try{
         res.status(200).json({ok: true, portal})
-
     }catch(err){
         next(err)
         //console.error(err.message)

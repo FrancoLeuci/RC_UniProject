@@ -6,6 +6,6 @@ const router = express.Router();
 
 router.get('/', verifyToken, viewRequests);
 router.put('/:reqId', verifyToken, actionRequest);
-router.get('/:extra', verifyToken, viewNotifications);
+router.get('/notification', verifyToken, viewNotifications);
 
 module.exports = router

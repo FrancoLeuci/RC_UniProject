@@ -13,16 +13,11 @@ async function getFollowedUsers(req,res,next){
 
     try{
         const userAccount= await BasicUser.findById(userId);
-        if(!userAccount){
-            throw new HttpError("User not found",404)
-            //return res.status(404).json({error: "User Not Found."})
-        }
-
-        console.log(userAccount.followedResearchers)
 
         const userMap=await Promise.all(userAccount.followedResearchers.map(async (researcher,i)=> {
             const foundUser=await BasicUser.findById(researcher.followedUserId)
             if(!foundUser){
+                //potrebbe essere tolto
                 //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
                 userAccount.followedResearchers.splice(i,1);
                 //save
@@ -54,10 +49,6 @@ async function getFollowedPortals(req,res,next){
 
     try{
         const userAccount= await BasicUser.findById(userId);
-        if(!userAccount){
-            throw new HttpError("User not found",404)
-            //return res.status(404).json({error: "User Not Found."})
-        }
 
         const portalMap=await Promise.all(userAccount.followedPortals.map(async (portal,i)=> {
             const foundPortal=await Portal.findById(portal.followedPortalId)

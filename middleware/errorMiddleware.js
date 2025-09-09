@@ -8,7 +8,7 @@ function HttpError(message, statusCode) {
 
 const errorHandler = (error, req, res, next) => {
 
-    console.error('❌ Caught error:', error.message);
+    console.error('❌ Caught error:', error);
 
     if (error.name === 'HttpError' && error.statusCode) {
         return res.status(error.statusCode).json({ error: error.message });

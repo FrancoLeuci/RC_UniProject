@@ -13,10 +13,6 @@ async function getProfile(req, res, next) {
 
     try{
         const user = await BasicUser.findById(userId)
-        if(!user){
-            throw new HttpError("User not found",404)
-            //return res.status(404).json({error: 'User not found'});
-        }
 
         res.json({ok: true, user});
     }catch(err){
@@ -31,41 +27,24 @@ async function editProfile(req, res, next){
     const userId = req.user.id //ottenuto da verifyToken
 
     try{
-        const user = await BasicUser.findById(userId);
-        if(!user){
-            throw new HttpError("User not found",404)
-            //return res.status(404).json({error: 'User not found'});
-        }
+        const user = await BasicUser.findById(userId)
 
         //email
-        if(!body.email){
-            throw new HttpError("Email is required",400)
-            //return res.status(404).json({message: "Missing email"})
-        }
-        if(body.email!==user.email){
+        if(body.email){
             user.email = body.email;
         }
 
-
         //anno di nascita
-        if(body.yearOfBirth!==user.yearOfBirth){
-            user.yearOfBirth = body.yearOfBirth;
-        }
+        user.yearOfBirth = body.yearOfBirth;
 
         //nazione di residenza
-        if(body.countryResidence!==user.countryResidence){
-            user.countryResidence = body.countryResidence;
-        }
+        user.countryResidence = body.countryResidence;
 
         //nazione di cui si ha la cittadinanza
-        if(body.countryCitizenship!==user.countryCitizenship){
-            user.countryCitizenship = body.countryCitizenship;
-        }
+        user.countryCitizenship = body.countryCitizenship;
 
         //tagline
-        if(body.tagLine!==user.tagLine){
-            user.tagLine = body.tagLine;
-        }
+        user.tagLine = body.tagLine;
 
         //description
         if(body.description){
@@ -99,9 +78,6 @@ async function editPassword(req, res, next){
 
     try{
         const user = await BasicUser.findById(userId);
-        if(!user){
-            throw new HttpError("User not found",404)
-        }
 
         if(!newPass){
             throw new HttpError("Password is required",400)
@@ -121,7 +97,7 @@ async function editPassword(req, res, next){
 
         await user.save()
 
-        res.status(200).json({ok: true, message: 'Password changed successfully. '})
+        res.status(200).json({ok: true, message: 'Password changed successfully.'})
     } catch(err){
         next(err)
         //console.error(err.message);
@@ -141,6 +117,7 @@ async function getAllUsers(req, res, next){
     }
 }
 
+//TODO: chiedere conferma su cosa accade se ho account con hide=true
 async function getUserView(req, res, next){
     //nella richiesta ci deve essere lo userId di chi fa la richiesta
     //cioè di chi vuole vedere l'account dell'utente con id=profileId
@@ -182,11 +159,14 @@ async function getUserView(req, res, next){
 async function getUserWithPublic(req, res, next){
     try{
         const fullUsers = await FullUser.find({hasPublicObjects: true})
-        const basicUsers = await Promise.all(
-            fullUsers.map(user => BasicUser.findById(user.basicCorrespondent))
+        let basicUsers = await Promise.all(
+            fullUsers.map(async user => {
+                await BasicUser.findById(user.basicCorrespondent)
+            })
         )
+        basicUsers = basicUsers.filter(user => user.hide!==true)
 
-        res.json({ok: true, fullUsers, basicUsers})
+        res.json({ok: true, basicUsers})
     }catch(err){
         next(err)
         //console.error(err.message)
@@ -198,7 +178,8 @@ async function getGroups(req, res, next){
     const userId = req.user.id
     try{
         const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
-        if(!fullAccount){
+        const isApproved = await BasicUser.findById(userId)
+        if(!fullAccount||!isApproved.approved){
             throw new HttpError("User is not a full account",409)
         }
 

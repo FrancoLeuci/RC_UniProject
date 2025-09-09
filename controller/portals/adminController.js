@@ -34,6 +34,8 @@ async function newUser(req,res,next) {
             //return res.status(409).json({message: 'An account associated with this email already exists.'})
         }
 
+        //TODO: dato che abbiamo chiarito col prof che il nome non è univoco, serve questo controllo?
+        //la mia idea è di fornire al front-end una lista di utenti con medesimo nome e se serve allora l'admin può inviare la richiesta con addToPortal
         const alreadyUserByName = await BasicUser.findOne({realName: realName})
         if (alreadyUserByName !== null) {
             const memberOfPortal = portal.members.find(memberId => memberId.equals(alreadyUserByName._id))
@@ -50,7 +52,6 @@ async function newUser(req,res,next) {
                 error: "UserNameExistsAlready",
                 message: "User already exists, but is not a member of the Portal."
             })*/
-            //TODO: creare messaggio per la richiesta dell'admin all'utente di invito al portale
         }
 
         const user = await BasicUser.create({
@@ -60,7 +61,6 @@ async function newUser(req,res,next) {
             verified: true,
             portals: portal._id //se è creato da un admin del portale
         })
-        console.log("Portal Admin created a new account.", user);
 
         portal.members.push(user._id)
         await portal.save()
@@ -73,12 +73,11 @@ async function newUser(req,res,next) {
     }
 }
 
+//TODO: vedere come implementare la ricerca se una richiesta simile è stata già mandata all'utente che si vuole aggiungere
 async function addToPortal(req,res,next){
     const portal=req.portal;
     const newMemberId=req.params.id;
     const adminId = req.user.id
-
-    console.log(portal)
 
     try{
         if(portal.members.find(memberId=>String(memberId)===newMemberId)||portal.admins.find(adminId=>String(adminId)===newMemberId)){
@@ -98,8 +97,7 @@ async function addToPortal(req,res,next){
                 extra: portal._id
             })
 
-            console.log("Componente aggiunto alla lista di membri del portale.")
-            return res.status(201).json({ok:true, message:"Added to the members list."})
+            return res.status(201).json({ok:true, message:"Request send successfully"})
         }
 
     }catch(err){
@@ -122,7 +120,6 @@ async function removeFromPortal(req,res,next){
             const userToRemove = await BasicUser.findById(memberToRemoveId)
             userToRemove.portals.splice(userToRemove.portals.indexOf(portal._id),1);
             await userToRemove.save()
-            console.log("Componente rimosso dalla lista di membri del portale.")
         } else {
             throw new HttpError("User is not a member of the Portal",400)
             //return res.status(400).json({message: "L'utente non è membro del portale"})
@@ -132,15 +129,15 @@ async function removeFromPortal(req,res,next){
         const notification = await Notification.findOne({receiver: memberToRemoveId})
         if(notification){
             notification.backlog.push(`You are removed from the portal ${portal.name}`)
+            await notification.save()
         } else {
             await Notification.create({
                 receiver: memberToRemoveId,
                 backlog: `You are removed from the portal ${portal.name}`
             })
         }
-        await notification.save()
 
-        res.status(200).json({ok:true,message:"Deleted from the members list."})
+        res.status(200).json({ok:true,message:"User deleted from the members list."})
     }catch(err){
         next(err)
         //console.error(err);
@@ -148,9 +145,11 @@ async function removeFromPortal(req,res,next){
     }
 }
 
+//TODO: da sistemare sia qui che in newUser il fatto del fullAccount
 async function editUser(req, res, next){
     const userId = req.params.id;
     const body = req.body;
+    const portal = req.portal
 
     try{
         const user = await BasicUser.findById(userId);
@@ -159,8 +158,10 @@ async function editUser(req, res, next){
             //return res.status(404).json({message: "The user doesn't exist."})
         }
 
-        const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
+        if(!portal.members.includes(user._id)) throw new HttpError('User not a member of the portal or is an admin',409)
 
+        //TODO: discutere, perchè se noi facciamo che quando un utente viene creato dal portal admin è già fullAccount
+        const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
 
         //profile
         //controllo per verificare che nella richiesta non venga cancellato il nome di un utente
@@ -184,8 +185,7 @@ async function editUser(req, res, next){
 
 
         //roles
-        user.approved = !body.approved; //se la checkbox è true => campo approved diviene false e viceversa
-
+        user.approved = !body.isFull; //TODO: se la checkbox è true => campo approved diviene false e viceversa
 
         //TODO: settings - da completare perchè presenta la questione degli annunci da vedere
         if(!body.language){
@@ -261,8 +261,8 @@ async function createGroup(req, res, next){
     const {title, description} = req.body;
     try{
         //controllo sul body
-        if(!title) throw new HttpError('Title of the Group is required',400)
-        if(!description) throw new HttpError('Description of the Group is required',400)
+        if(!title) throw new HttpError('Title is required',400)
+        if(!description) throw new HttpError('Description is required',400)
 
         await Group.create({
             title,
@@ -297,9 +297,6 @@ async function deleteGroup(req, res, next){
     try{
         const group = await Group.findById(groupId)
         if(!group) throw new HttpError("Group not found",404)
-
-        //controllo che il portale da cui è stata fatta la richiesta corrisponda a quello che ha creto il gruppo
-        if(!group.portal.equals(portal._id)) throw new HttpError('You are not Authorized',401)
 
         //devo eliminare per ogni fullAccount di ogni membro e admin la referenza del gruppo
         //TODO: le utilizzo se è vera la cosa di sopra

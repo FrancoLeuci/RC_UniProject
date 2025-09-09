@@ -25,6 +25,6 @@ router.post('/:portal/group/create', verifyToken, portalAdminCheck, createGroup)
 router.delete('/:portal/group/:grId/delete', verifyToken, portalAdminCheck, deleteGroup)
 
 //visualizzazione dei portali nel sito
-router.get('/portals', getPortals);
+router.get('/', getPortals);
 
 module.exports = router

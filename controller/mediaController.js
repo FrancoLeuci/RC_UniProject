@@ -241,7 +241,7 @@ async function filterMedia(req, res, next){
         list = media.filter((m,i) => list.includes(i))
         console.log(list)
 
-        res.status(200).json(list)
+        res.status(200).json({ok: true, data: list})
 
     }catch(err){
         next(err)
@@ -257,7 +257,7 @@ async function getMedia(req, res, next){
         let media = await Media.find({uploadedBy: userId})
         //quando si vuole confrontare 2 ObjectId di mongoose è necessario utilizzare il metodo .equals() al posto dei classici operatori
         media=media.filter(m => !m._id.equals(user.curriculumVitae) && !m._id.equals(user.profilePicture))
-        res.status(200).json(media)
+        res.status(200).json({ok: true, data: media})
 
     }catch(err){
         next(err)

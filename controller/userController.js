@@ -28,7 +28,7 @@ const generateTokens=async (userID, roles)=>{
     }
 }
 
-async function emailSender (email, id, resetKey){
+async function emailSender (email, id, resetKey, next){
     try{
         // metodo della libreria googleapis per creare un client oAuth2 autorizzato
         const oAuth2Client = new google.auth.OAuth2(
@@ -85,7 +85,11 @@ async function emailSender (email, id, resetKey){
             return await emailTransporter.sendMail(mailOptions)
         }
     }catch(err){
-        throw new HttpError("Failed to send email", 500)
+        if(resetKey===undefined){
+            await BasicUser.findByIdAndDelete(id)
+        }
+        console.error("Errore invio email:", err);
+        throw new HttpError("Failed to send email: " + err.message, 500);
         //console.error("Failed to send email, retry", err.message);
     }
 }
@@ -148,7 +152,7 @@ async function accountVerify(req, res, next){
 
         await user.save()
 
-        res.status(200).json({ok: true, message:"Account is verified, now you can login"});
+        res.status(200).json({ok: true, message:"Account verified!"});
 
     }catch(err){
         next(err)
@@ -356,11 +360,13 @@ async function requestToBecomeGroupMember(req, res, next){
 
         const user = await BasicUser.findById(userId)
 
+        const portal = await Portal.findById(group.portal)
+
         //TODO
         const existingRequest = await Request.findOne({
-            sender: user._id,
-            receiver: group.admins[0],
-            type: 'portal.requestToAccess',
+            sender: userId,
+            receiver: portal.admins[0],//group.admins[0],
+            type: 'group.requestToAccess',
             extra: group._id
         });
 
@@ -376,7 +382,7 @@ async function requestToBecomeGroupMember(req, res, next){
 
         await Request.create({
             sender: user._id,
-            receiver: group.admins[0],
+            receiver: portal.admins[0],//group.admins[0],
             type: 'group.requestToAccess',
             content: `${user.realName} want to became a member of ${group.title}`,
             extra: group._id
