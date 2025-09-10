@@ -8,27 +8,13 @@ const requestSchema = new mongoose.Schema({
         required: true,
         enum: [
             // collaboration
-            "collaboration.add",
-            "collaboration.accept",
-            "collaboration.decline",
-            "collaboration.cancel",
-            "collaboration.leave",
-            "collaboration.add.editor",
-            "collaboration.admin.add",
-            "collaboration.admin.remove",
+            "collaboration.addUser", //solo il creatore può chiedere ad altre persone di collaborare
             // portal
             "portal.addMember", //svolta dal portale verso un utente
             "portal.requestToAccess", //svolta dall'utente verso un portale
-            "portal.accepted",
-            "portal.declined",
             // group
             "group.addMember", //svolta dal gruppo verso un utente
             "group.requestToAccess", //svolta dall'utente verso il gruppo
-            // newsletter
-            "newsletter.approve",
-            // task
-            "task.add",
-            // ecc.
         ],
     },
 

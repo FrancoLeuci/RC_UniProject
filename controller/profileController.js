@@ -117,7 +117,7 @@ async function getAllUsers(req, res, next){
     }
 }
 
-//TODO: chiedere conferma su cosa accade se ho account con hide=true
+//TODO: sistemare la questione del hide
 async function getUserView(req, res, next){
     //nella richiesta ci deve essere lo userId di chi fa la richiesta
     //cioè di chi vuole vedere l'account dell'utente con id=profileId

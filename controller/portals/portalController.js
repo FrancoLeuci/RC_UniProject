@@ -64,19 +64,19 @@ async function edit (req, res, next){
 
         //TODO: templates da implementare dopo la creazione delle esibizioni
 
-        //doi - da chi viene assegnato?
+        //doi - assegnato da società internazionale
         if(body.doiAbbreviation){
             portal.doiAbbreviation = body.doiAbbreviation
         }
 
         //settings
         if(body.features){
+            //lista di booleani
             portal.features = body.features
         }
         /*
             i setting sono settati di default alla creazione del portale
-            da parte del superAdmin, di conseguenza l'array di oggetti
-            features è già composto di tutti i suoi elementi
+            da parte del superAdmin
         */
         
         await portal.save()

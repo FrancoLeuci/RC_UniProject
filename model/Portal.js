@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const BasicUser=require('./BasicUser')
+const {Image} = require("./Media");
 
 const PortalSchema = new mongoose.Schema(
     {
@@ -8,7 +9,6 @@ const PortalSchema = new mongoose.Schema(
         doiAbbreviation: { type: String }, //radice di un codice che identifica il portale di una certa esposizione/lavoro
         issn: { type: String }, //identificatore unico nel mondo, fornito da società internazionale
         url: { type: String }, //rimanda a un sito associato al portale in questione
-        default: { type: Boolean, default: false }, //true se il portale è principale, false se è un semplice archivio con tutte quante le esposizioni
 
         // ReferenceMany verso User/Issue/Exposition
         admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin e di quale portale sono portal admin
@@ -29,27 +29,24 @@ const PortalSchema = new mongoose.Schema(
 
         features: {
             EXPOSITION_CONNECTING:{type:Boolean, default:false},
-            EXPOSITION_DOI_DEPOSIT:{type:Boolean, default:false},
             EXPOSITION_PUBLISHING:{type:Boolean, default:false},
             LIMITED_EXPOSITION_PUBLISHING:{type:Boolean, default:false},
-            WORK_CONNECTING:{type:Boolean, default:false},
-            APPLICATION_PUBLISHING:{type:Boolean, default:false},
-            PROFILE:{type:Boolean, default:false},
             LINK_EXTERNAL:{type:Boolean, default:false},
-            APPLICATION_PROGRAM:{type:Boolean, default:false},
             MEMBERSHIP_SELECTION:{type:Boolean, default:false},
             EXTERNAL_CONTENT:{type:Boolean, default:false},
 
             /*LINK EXTERNAL=Se true, verrà caricato il sito esterno indicato nel campo url invece del portale sul sito, cliccando da quello della pagina RC
             MEMBERSHIP_SELECTION=Se true, gli utenti possono inviare richiesta per entrare nel portale
             EXPOSITION_CONNECTING=Se true, è possibile collegare expositions al portale.
-            WORK_CONNECTING= Se true, l'utente può chiedere di collegare un lavoro al portale
             EXPOSITION_PUBLISHING=Se true i ricercatori possono chiedere di pubblicare nel portale
             EXTERNAL_CONTENT= se true l'utente può inviare expositions con contenuto esterno al loro interno.
             LIMITED_EXPOSITION_PUBLISHING=permette a utenti di richiedere in maniera limitata una pubblicazione.
-            APPLICATION_PROGRAM e _PUBLISHING, WORK_CONNECTING: vedere a cosa servono
             * */
-        }
+        },
+        picture: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: Image
+        },
     }, { timestamps: true }
 )
 

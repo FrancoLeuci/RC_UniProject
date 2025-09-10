@@ -156,10 +156,10 @@ async function viewNotifications(req, res, next){
             } else {
                 throw new HttpError("You are Not Authorized to access", 401);
             }
+        } else {
+            const notifications = await Notification.findOne({receiver: userId})
+            res.status(200).json({ok: true, data: notifications})
         }
-
-        const notifications = await Notification.findOne({receiver: userId})
-        res.status(200).json({ok: true, data: notifications})
     }catch(err){
         next(err);
     }

@@ -41,7 +41,7 @@ async function groupEdit(req, res, next){
 }
 
 //TODO: chiedere se anche qui l'utente deve accettare una richiesta per divenire un admin o se solo un membro già del gruppo può divenire tale, e se un admin può fare parte di un gruppo
-//può essere svolta (per il momento) solo dai portal_admin
+//può essere svolta sia dai portal_admin che dai group_admin
 //serve per aggiungere gli admin del gruppo
 async function addAdmin(req, res, next){
     const userId = req.user.id;
@@ -58,11 +58,11 @@ async function addAdmin(req, res, next){
         //controllo sull'utente che viene aggiunto
         const newAdmin = await BasicUser.findById(newAdminId)
         if(!newAdmin) throw new HttpError('User to add as admin not exist', 404)
-        if(portal.admins.includes(newAdminId)) throw new HttpError('User to add as admin is an admin of the portal', 400)
         if(!portal.members.includes(newAdminId)) throw new HttpError('User to add as admin is not a member of the portal', 400)
+        if(!group.members.includes(newAdminId)) throw new HttpError('User to add as admin is not a member of the group', 400)
         if(group.admins.includes(newAdminId)) throw new HttpError('The user is already an admin of the group', 409)
         const isFull = await FullUser.findOne({basicCorrespondent: newAdminId})
-        if(!isFull||!newAdmin.approved) throw new HttpError('The user that you want to add as admin does not have a full account', 400)
+        if(!isFull) throw new HttpError('The user that you want to add as admin does not have a full account', 400)
 
         //aggiungo nella lista degli admins
         group.admins.push(newAdminId)
@@ -102,13 +102,12 @@ async function addMember(req, res, next){
 
         //controllo sull'utente che viene aggiunto
         const newMember = await BasicUser.findById(newMemberId)
-        if(!newMember) throw new HttpError('User to add as member not exist', 404)
-        if(portal.admins.includes(newMemberId)) throw new HttpError('User to add as member is an admin of the portal', 400)
+        if(!newMember) throw new HttpError('User to add as member does not exist', 404)
         if(!portal.members.includes(newMemberId)) throw new HttpError('User to add as member is not a member of the portal', 400)
         if(group.admins.includes(newMemberId)) throw new HttpError('The user is already an admin of the group', 409)
         if(group.members.includes(newMemberId)) throw new HttpError('The user is already a member of the group', 409)
         const isFull = await FullUser.findOne({basicCorrespondent: newMemberId})
-        if(!isFull||!newMember.approved) throw new HttpError('The user that you want to add as member does not have a full account', 400)
+        if(!isFull) throw new HttpError('The user that you want to add as member does not have a full account', 400)
 
         //creo la request
         await Request.create({
@@ -149,9 +148,9 @@ async function removeMember(req, res, next){
                 throw new HttpError('You are not Authorized', 401)
             }
         } else if(group.admins.includes(memberId)){
-            //se è un admin può essere eliminato solo da un portal admin
             const isAdminP = portal.admins.includes(userId)
-            if(isAdminP){
+            const isAdminG = group.admins.includes(userId)
+            if(isAdminP||isAdminG){
                 const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
                 memberFull.groups.splice(memberFull.groups.findIndex(g => g.equals(group._id)),1)
                 await memberFull.save()
@@ -175,6 +174,8 @@ async function removeMember(req, res, next){
                 backlog: `You are removed from the group ${group.title}`
             })
         }
+
+        //TODO: creare la notifica anche nel gruppo
 
         res.status(200).json({ok: true, message:"The user is removed successfully from the group"})
     }catch(err){

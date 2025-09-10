@@ -14,7 +14,7 @@ const {HttpError} = require("../../middleware/errorMiddleware");
 
 //pending requests
 
-
+//TODO-domanda al prof: l'account creato dal portal_admin è già full o deve fare richiesta al super_admin?
 async function newUser(req,res,next) {
     const portal=req.portal;
     const {email, name, surname, password} = req.body;
@@ -36,36 +36,30 @@ async function newUser(req,res,next) {
 
         //TODO: dato che abbiamo chiarito col prof che il nome non è univoco, serve questo controllo?
         //la mia idea è di fornire al front-end una lista di utenti con medesimo nome e se serve allora l'admin può inviare la richiesta con addToPortal
-        const alreadyUserByName = await BasicUser.findOne({realName: realName})
-        if (alreadyUserByName !== null) {
-            const memberOfPortal = portal.members.find(memberId => memberId.equals(alreadyUserByName._id))
-            const adminOfPortal = portal.admins.find(adminId => adminId.equals(alreadyUserByName._id));
-            if (memberOfPortal || adminOfPortal) {
-                throw new HttpError("User with the same name is a member of the Portal",409)
-                /*return res.status(409).json({
-                    error: "UserAlreadyInPortal",
-                    message: "User with the same name is a member of the Portal."
-                })*/
-            }
-            throw new HttpError("User already exists, but is not a member of the Portal",409)
-            /*return res.status(409).json({
-                error: "UserNameExistsAlready",
-                message: "User already exists, but is not a member of the Portal."
-            })*/
+
+        /*
+        const alreadyUserByName = await BasicUser.find({realName: realName})
+        if(alreadyUserByName){
+            //lista completa utenti stesso nome
+            return res.status(409).json({message:"Users with the same name already exist. ",usersWithSameName:alreadyUserByName})
+
         }
+       TODO: chiedere al prof se è possibile mostrare una lista di utenti con lo stesso nome per poi chiedere se l'utente vuole creare lo stesso o meno
+         */
 
-        const user = await BasicUser.create({
-            realName,
-            email,
-            password,
-            verified: true,
-            portals: portal._id //se è creato da un admin del portale
-        })
+            const user = await BasicUser.create({
+                realName,
+                email,
+                password,
+                verified: true,
+                portals: portal._id //se è creato da un admin del portale
+            })
 
-        portal.members.push(user._id)
-        await portal.save()
+            portal.members.push(user._id)
+            await portal.save()
 
-        res.status(201).json({ok: true, message: "You created a new Account."})
+            res.status(201).json({ok: true, message: "You created a new Account."})
+
     } catch (err) {
         next(err)
         //console.error(err.message);
@@ -128,14 +122,17 @@ async function removeFromPortal(req,res,next){
         //creo notifica che avvisa l'utente di essere stato rimosso dal portale
         const notification = await Notification.findOne({receiver: memberToRemoveId})
         if(notification){
-            notification.backlog.push(`You are removed from the portal ${portal.name}`)
+            notification.backlog.push(`You were removed from the portal ${portal.name}`)
             await notification.save()
         } else {
             await Notification.create({
                 receiver: memberToRemoveId,
-                backlog: `You are removed from the portal ${portal.name}`
+                backlog: `You were removed from the portal ${portal.name}`
             })
         }
+
+
+        //TODO: farlo anche per il portale
 
         res.status(200).json({ok:true,message:"User deleted from the members list."})
     }catch(err){
@@ -183,10 +180,6 @@ async function editUser(req, res, next){
            user.password = body.password;
         }
 
-
-        //roles
-        user.approved = !body.isFull; //TODO: se la checkbox è true => campo approved diviene false e viceversa
-
         //TODO: settings - da completare perchè presenta la questione degli annunci da vedere
         if(!body.language){
             throw new HttpError("Select a language",400)
@@ -213,7 +206,7 @@ async function editUser(req, res, next){
 }
 
 //TODO: chidere a F se ha senso tenerlo dato che il prof ha detto che basta 1 portale per ogni casistica e reputo strano che un admin possa chiedere che un utente diventi membro di un altro portale
-async function addToOtherPortal(req,res,next){
+/*async function addToOtherPortal(req,res,next){
     //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
     //del quale disponiamo dell'id (req.params.id)
     const portal=req.portal;
@@ -239,7 +232,7 @@ async function addToOtherPortal(req,res,next){
         //res.status(500).json({error: "An error occured while adding this user to another portal."})
     }
 
-}
+}*/
 
 async function getPortalMembers(req, res, next){
     const portal = req.portal
@@ -298,9 +291,7 @@ async function deleteGroup(req, res, next){
         const group = await Group.findById(groupId)
         if(!group) throw new HttpError("Group not found",404)
 
-        //devo eliminare per ogni fullAccount di ogni membro e admin la referenza del gruppo
-        //TODO: le utilizzo se è vera la cosa di sopra
-        /*if(group.admins.length!==0){
+        if(group.admins.length!==0){
             await Promise.all(group.admins.map(async admin => {
                 const fullAccount = await FullUser.findOne({basicCorrespondent: admin})
                 const index = fullAccount.groups.findIndex(g => g.equals(group._id))
@@ -315,10 +306,6 @@ async function deleteGroup(req, res, next){
                 fullAccount.groups.splice(index,1)
                 await fullAccount.save()
             }))
-        }*/
-        //TODO: la utilizzo se è falsa la cosa di sopra
-        if(group.admins.length!==0||group.members.length!==0){
-            throw new HttpError("You can't delete the group, until there are members and admins",400)
         }
 
         //elimino l'oggetto Notifica legata ad esso
@@ -332,4 +319,4 @@ async function deleteGroup(req, res, next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, addToOtherPortal, createGroup, deleteGroup}
+module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, createGroup, deleteGroup}

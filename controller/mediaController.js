@@ -4,6 +4,7 @@ const ffmpeg = require("fluent-ffmpeg");
 const pdfParse = require("pdf-parse");
 const fs=require("fs");
 const BasicUser = require("../model/BasicUser");
+const Portal = require("../model/Portal")
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
@@ -50,9 +51,12 @@ async function uploadFile(req,res,next){
         //Dalla req prende i campi description e tags. Possono anche essere vuoti dal momento che non sono required nel db
         //description è un semplice stringa e lo posso mettere direttamente in media
         //license di default è settata a "All rights reserved"
-        const {description,tagsString,copyright,license,isProfilePic,isCurriculumVitae}=req.body;
-        if(isProfilePic && !(file.mimetype.startsWith("image/"))){
-            throw new HttpError("The file must be an Image. (Profile Picture)",400)
+
+
+        //nel body, se si sta facendo upload di un'immagine di profilo di un portale, va inserito il portalId FRONTEND
+        const {description,tagsString,copyright,license,isProfilePic,isCurriculumVitae,isPortalPic,portalId}=req.body;
+        if((isProfilePic||isPortalPic) && !(file.mimetype.startsWith("image/"))){
+            throw new HttpError("The file must be an Image. (Profile/Portal Picture)",400)
             //return res.status(400).json({ok:false,message:"The file must be an Image. (Profile Picture)"})
         }else if(isCurriculumVitae && !(file.mimetype === "application/pdf")){
             throw new HttpError("The file must be a pdf. (Curriculum Vitae)",400)
@@ -93,11 +97,21 @@ async function uploadFile(req,res,next){
             kind = "image";
             media ={...media, width, height};
             const newImageMedia=await Image.create(media)
-            //TODO: con le altre cose
+
             if(isProfilePic){
                 const currentUser=await BasicUser.findById(userId)
                 currentUser.profilePicture=newImageMedia._id;
                 await currentUser.save()
+            }else if(isPortalPic){
+                //TODO:da testare
+                const currentPortal=await Portal.findById(portalId)
+                if(!currentPortal.admins.includes(userId)){
+                    throw new HttpError("Forbidden: you can't change the portal profile picture.",403)
+
+                }
+
+                currentPortal.picture=newImageMedia._id;
+                await currentPortal.save();
             }
         }
         else if (file.mimetype.startsWith("video/")){

@@ -394,4 +394,8 @@ async function requestToBecomeGroupMember(req, res, next){
     }
 }
 
+async function findUserByName(req,res){
+
+}
+
 module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember}
