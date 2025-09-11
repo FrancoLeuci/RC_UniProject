@@ -52,7 +52,7 @@ async function newUser(req,res,next) {
                 email,
                 password,
                 verified: true,
-                portals: portal._id //se è creato da un admin del portale
+                portals: portal._id //è creato da un admin del portale
             })
 
             portal.members.push(user._id)
@@ -83,9 +83,19 @@ async function addToPortal(req,res,next){
                 throw new HttpError("User not found",404)
             }
 
+            const existingRequest = await Request.findOne({
+                receiver: newMember._id,
+                type: 'portal.addMember',
+                extra: portal._id
+            });
+
+            if (existingRequest) {
+                throw new HttpError(`Request already made`, 409);
+            }
+
             await Request.create({
                 type: 'portal.addMember',
-                sender: adminId, //<-
+                sender: adminId, //<- è visibile solo a lui la richiesta e non a tutto il portale
                 receiver: newMember._id,
                 content: `${portal.name} has invited ${newMember.realName} to become a member of the Portal`,
                 extra: portal._id
@@ -106,12 +116,12 @@ async function removeFromPortal(req,res,next){
     const memberToRemoveId=req.params.id;
 
     try{
+        const userToRemove = await BasicUser.findById(memberToRemoveId)
+        if(!userToRemove) throw new HttpError('User not found',404)
+
         if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)){
-            console.log(portal.members.indexOf(memberToRemoveId))
             portal.members.splice(portal.members.indexOf(memberToRemoveId),1);
             await portal.save();
-
-            const userToRemove = await BasicUser.findById(memberToRemoveId)
             userToRemove.portals.splice(userToRemove.portals.indexOf(portal._id),1);
             await userToRemove.save()
         } else {
@@ -119,20 +129,35 @@ async function removeFromPortal(req,res,next){
             //return res.status(400).json({message: "L'utente non è membro del portale"})
         }
 
+        //TODO: chiedere se è necessario inviare anche una notifica per la rimozione dai gruppi del portale a cui faceva parte
+        const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId})
+        if(userToRemoveFull) {
+            userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.portal!==portal._id)
+            await userToRemoveFull.save()
+        }
+
         //creo notifica che avvisa l'utente di essere stato rimosso dal portale
-        const notification = await Notification.findOne({receiver: memberToRemoveId})
+        let notification = await Notification.findOne({receiver: memberToRemoveId})
         if(notification){
-            notification.backlog.push(`You were removed from the portal ${portal.name}`)
+            notification.backlog.push(`You are removed from the portal ${portal.name}`)
             await notification.save()
         } else {
             await Notification.create({
                 receiver: memberToRemoveId,
-                backlog: `You were removed from the portal ${portal.name}`
+                backlog: `You are removed from the portal ${portal.name}`
             })
         }
 
-
-        //TODO: farlo anche per il portale
+        notification = await Notification.findOne({receiver: portal._id})
+        if(notification){
+            notification.backlog.push(`${userToRemove.realName} is removed from the portal`)
+            await notification.save()
+        } else {
+            await Notification.create({
+                receiver: portal._id,
+                backlog: `${userToRemove.realName} is removed from the portal`
+            })
+        }
 
         res.status(200).json({ok:true,message:"User deleted from the members list."})
     }catch(err){
@@ -142,7 +167,6 @@ async function removeFromPortal(req,res,next){
     }
 }
 
-//TODO: da sistemare sia qui che in newUser il fatto del fullAccount
 async function editUser(req, res, next){
     const userId = req.params.id;
     const body = req.body;
@@ -157,8 +181,8 @@ async function editUser(req, res, next){
 
         if(!portal.members.includes(user._id)) throw new HttpError('User not a member of the portal or is an admin',409)
 
-        //TODO: discutere, perchè se noi facciamo che quando un utente viene creato dal portal admin è già fullAccount
-        const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
+        //TODO: è necessario che il portal_admin possa modificare l'alias dell'utente?
+        //const userFull = await FullUser.findOne({basicCorrespondent: user._id}) //serve per l'alias
 
         //profile
         //controllo per verificare che nella richiesta non venga cancellato il nome di un utente
@@ -166,10 +190,10 @@ async function editUser(req, res, next){
             user.realName = body.name;
         }
 
-        if(userFull && body.alias){
+        /*if(userFull && body.alias){
             userFull.alias = body.alias; //campo di FullUser
             await userFull.save()
-        }
+        }*/
 
         if(body.email){
             user.email = body.email;
@@ -189,13 +213,6 @@ async function editUser(req, res, next){
         }
 
         await user.save()
-
-        if(!userFull && user.approved){
-            await FullUser.create({
-                basicCorrespondent: userId,
-                alias: body.alias?body.alias:""
-            })
-        }
 
         res.status(200).json({ok:true,message:"User updated successfully."})
     }catch(err){
@@ -282,7 +299,6 @@ async function createGroup(req, res, next){
     }
 }*/
 
-//TODO: chiedere se un gruppo può essere eliminato quando è privo di membri e senza connections
 async function deleteGroup(req, res, next){
     const portal = req.portal
     const groupId = req.params.grId;

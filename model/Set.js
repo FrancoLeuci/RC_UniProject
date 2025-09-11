@@ -23,8 +23,8 @@ const setSchema=new mongoose.Schema({
         enum:["public","website","private"],
         default:"private"
     },
-//array che specifica cosa possono fare gli altri utenti(al di fuori del creatore)
 
+//array che specifica cosa possono fare gli altri utenti(al di fuori del creatore)
     otherUsersPermissions:[{
         user:{
             type:mongoose.Schema.Types.ObjectId,

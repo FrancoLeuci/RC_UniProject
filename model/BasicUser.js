@@ -9,7 +9,7 @@ const basicUserSchema = new mongoose.Schema({
     hide: {
         type: Boolean,
         default: false
-    },
+    }, //nasconde solamente il profilo
 
     email: {
         type: String,
@@ -24,10 +24,10 @@ const basicUserSchema = new mongoose.Schema({
         default: false
     },
 
-    approved: {
+    /*approved: {
         type: Boolean,
         default: false
-    }, // da basic a full account
+    }, // da basic a full account*/
 
     password: {
         type: String,
@@ -91,6 +91,7 @@ const basicUserSchema = new mongoose.Schema({
         // puoi estendere in base al file PHP Settings.php
     },
 
+    //TODO: è possibile semplificarla?
     description: [
             {
                 lang:{
@@ -124,11 +125,6 @@ const basicUserSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
     }],
-
-    /*
-    idPublic -> BasicUser -> followeResearch.include(idPublic) (idPublic = id di un utente) -> notifica inviata
-    idPublic -> BasicUser -> followedPortals.include(idPublic) (idPublic = id di un portale) -> notifica inviata
-     */
 
     favoritesExposition: [{
         type: mongoose.Schema.Types.ObjectId,

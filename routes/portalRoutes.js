@@ -15,7 +15,7 @@ router.put('/:portal/edit', verifyToken, portalAdminCheck, edit)
 //gestione degli utenti del portale
 router.post('/:portal/members/create', verifyToken, portalAdminCheck, newUser)
 router.put('/:portal/members/:id', verifyToken, portalAdminCheck, addToPortal)
-router.delete('/:portal/members/:id', verifyToken, portalAdminCheck, removeFromPortal)
+router.delete('/:portal/member/:id', verifyToken, portalAdminCheck, removeFromPortal)
 router.put('/:portal/members/edit/:id', verifyToken, portalAdminCheck, editUser)
 router.get('/:portal/members', verifyToken, portalAdminCheck, getPortalMembers)
 

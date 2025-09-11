@@ -318,11 +318,13 @@ async function requestToBecomePortalMember(req, res, next){
             throw new HttpError("Portal not found",404)
         }
 
+        if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} not accept request`,409)
+
         const user = await BasicUser.findById(userId)
 
         const existingRequest = await Request.findOne({
             sender: user._id,
-            receiver: portal.admins[0],
+            receiver: portal._id,
             type: 'portal.requestToAccess',
             extra: portal._id
         });
@@ -337,7 +339,7 @@ async function requestToBecomePortalMember(req, res, next){
 
         await Request.create({
             sender: user._id,
-            receiver: portal.admins[0],
+            receiver: portal._id,
             type: 'portal.requestToAccess',
             content: `${user.realName} want to became a member of ${portal.name}`,
             extra: portal._id
@@ -365,9 +367,9 @@ async function requestToBecomeGroupMember(req, res, next){
         //TODO
         const existingRequest = await Request.findOne({
             sender: userId,
-            receiver: portal.admins[0],//group.admins[0],
+            receiver: group._id,
             type: 'group.requestToAccess',
-            extra: group._id
+             extra: group._id
         });
 
         if (existingRequest) {
@@ -381,8 +383,8 @@ async function requestToBecomeGroupMember(req, res, next){
         if(!user.approved) throw new HttpError("You do not have a full account",409);
 
         await Request.create({
-            sender: user._id,
-            receiver: portal.admins[0],//group.admins[0],
+            sender: userId,
+            receiver: group._id,
             type: 'group.requestToAccess',
             content: `${user.realName} want to became a member of ${group.title}`,
             extra: group._id
@@ -394,8 +396,19 @@ async function requestToBecomeGroupMember(req, res, next){
     }
 }
 
-async function findUserByName(req,res){
+async function findUserByName(req,res,next){
+    const {text} = req.body;
+    try{
+        if(!text) throw new HttpError("Enter a text",400);
 
+        const allUsers = await BasicUser.find({});
+
+        const validUsers = allUsers.filter(user => user.realName.includes(text))
+
+        res.status(200).json({ok: true, data: validUsers})
+    }catch(err){
+        next(err)
+    }
 }
 
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember}
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName}

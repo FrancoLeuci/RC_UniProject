@@ -19,9 +19,9 @@ const requestSchema = new mongoose.Schema({
     },
 
     sender: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
-    receiver: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
+    receiver: { type: mongoose.Schema.Types.ObjectId},
 
-    content: { type: String }, // testo libero, se serve
+    content: { type: String },
 
     extra: {type: mongoose.Schema.Types.ObjectId},
 

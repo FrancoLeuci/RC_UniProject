@@ -28,7 +28,9 @@ async function actionRequest(req, res, next) {
         if(action==="canceled"){ //cancellazione della richiesta
             if(String(request.sender)!==String(user._id)) throw new HttpError('Not Authorized to cancel the request',401)
         }else{ //accettare o rigettare la richiesta
-            if(String(request.receiver) !== String(user._id)) throw new HttpError(`Not Authorized to accept/reject the request`,401)
+            if(request.type.includes('addMember')){
+                if(!request.receiver.equals(user._id)) throw new HttpError('Not Authorized to accept/reject the request',401)
+            }
         }
 
         //gestione richieste portali
@@ -42,8 +44,10 @@ async function actionRequest(req, res, next) {
                 await user.save()
             }
         } else if(request.type==="portal.requestToAccess"){
+            const portal = await Portal.findById(request.extra)
+            //verifico che colui che compie l'azione sia un admin del portale
+            if(!portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
             if(action==="accepted"){
-                const portal = await Portal.findById(request.extra)
                 portal.members.push(request.sender)
                 await portal.save()
 
@@ -65,8 +69,11 @@ async function actionRequest(req, res, next) {
                 await fullUser.save()
             }
         } else if(request.type==="group.requestToAccess"){
+            const group = await Group.findById(request.extra)
+            //verifico che l'azione sia compiuta da un admin del gruppo
+            if(!group.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
+
             if(action==="accepted"){
-                const group = await Group.findById(request.extra)
                 group.members.push(request.sender)
                 await group.save()
 
@@ -91,15 +98,17 @@ async function actionRequest(req, res, next) {
             }
 
             //creo la notifica per il destinatario
-            notification = await Notification.findOne({receiver: request.receiver})
-            if(notification){
-                notification.backlog.push(`You have ${action} the request: ${request.content}`)
-                await notification.save()
-            } else {
-                await Notification.create({
-                    receiver: request.receiver,
-                    backlog: `You have ${action} the request: ${request.content}`
-                })
+            if(!request.receiver.equals(request.extra)){
+                notification = await Notification.findOne({receiver: request.receiver})
+                if(notification){
+                    notification.backlog.push(`You have ${action} the request: ${request.content}`)
+                    await notification.save()
+                } else {
+                    await Notification.create({
+                        receiver: request.receiver,
+                        backlog: `You have ${action} the request: ${request.content}`
+                    })
+                }
             }
 
             //creo la notifica visibile nel portale/gruppo se serve

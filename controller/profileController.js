@@ -14,7 +14,7 @@ async function getProfile(req, res, next) {
     try{
         const user = await BasicUser.findById(userId)
 
-        res.json({ok: true, user});
+        res.status(200).json({ok: true, data: user});
     }catch(err){
         next(err);
         //console.log(err);
@@ -107,7 +107,7 @@ async function editPassword(req, res, next){
 
 async function getAllUsers(req, res, next){
     try{
-        const users = await BasicUser.find({verified: true, hide: false})
+        const users = await BasicUser.find({verified: true})
 
         res.status(200).json({ok: true, users})
     }catch(err){
@@ -129,7 +129,7 @@ async function getUserView(req, res, next){
         if(!userInfo){
             throw new HttpError("User not found",404)
         }
-        if(userInfo.hide) throw new HttpError("You are Not Authorized to view the profile",401)
+        if(userInfo.hide) throw new HttpError("You are Not Authorized",401)
 
         const userSets = await Set.find({creator: userInfo._id})
 
@@ -164,7 +164,6 @@ async function getUserWithPublic(req, res, next){
                 await BasicUser.findById(user.basicCorrespondent)
             })
         )
-        basicUsers = basicUsers.filter(user => user.hide!==true)
 
         res.json({ok: true, basicUsers})
     }catch(err){
@@ -174,12 +173,12 @@ async function getUserWithPublic(req, res, next){
     }
 }
 
+//sono i gruppi a cui appartiene l'utente
 async function getGroups(req, res, next){
     const userId = req.user.id
     try{
         const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
-        const isApproved = await BasicUser.findById(userId)
-        if(!fullAccount||!isApproved.approved){
+        if(!fullAccount){
             throw new HttpError("User is not a full account",409)
         }
 

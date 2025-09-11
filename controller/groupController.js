@@ -12,24 +12,9 @@ const {HttpError} = require('../middleware/errorMiddleware');
 // funzione che può essere gestita da un portal_admin del portale o da un group_admin
 // serve per modificare la descrizione, la visibilità e i metadati(non ancora implementati mi pare -> chiedere conferma)
 async function groupEdit(req, res, next){
-    const userId = req.user.id;
-    const groupId = req.params.grId;
+    const group = req.group
     const {description, visibility} = req.body;
     try{
-        //ricavo le informazioni del gruppo
-        const group = await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found', 404);
-
-        //verifico se l'utente che ha fatto richiesta sia un admin del gruppo
-        let isAdmin = group.admins.includes(userId)
-        if(!isAdmin) {
-            //altrimenti controllo se è un admin del portale
-            const portal = await Portal.findById(group.portal)
-            isAdmin = portal.admins.includes(userId)
-            if(!isAdmin) throw new HttpError('You are not Authorized to edit the Group', 401)
-        }
-
-        //ora possono essere applicate le modifiche sul gruppo
         if(description) group.description = description
         if(visibility) group.visibility = visibility
         await group.save()
@@ -44,35 +29,34 @@ async function groupEdit(req, res, next){
 //può essere svolta sia dai portal_admin che dai group_admin
 //serve per aggiungere gli admin del gruppo
 async function addAdmin(req, res, next){
-    const userId = req.user.id;
-    const groupId = req.params.grId;
+    const group = req.group;
     const newAdminId = req.params.id
     try{
-        const group = await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found', 404);
-
-        const portal = await Portal.findById(group.portal)
-        const isAdmin = portal.admins.includes(userId)
-        if(!isAdmin) throw new HttpError('You are not Authorized', 401)
-
         //controllo sull'utente che viene aggiunto
         const newAdmin = await BasicUser.findById(newAdminId)
-        if(!newAdmin) throw new HttpError('User to add as admin not exist', 404)
-        if(!portal.members.includes(newAdminId)) throw new HttpError('User to add as admin is not a member of the portal', 400)
-        if(!group.members.includes(newAdminId)) throw new HttpError('User to add as admin is not a member of the group', 400)
-        if(group.admins.includes(newAdminId)) throw new HttpError('The user is already an admin of the group', 409)
+        if(!newAdmin) throw new HttpError('User not found', 404)
+        if(group.admins.includes(newAdminId)) throw new HttpError('User is already an admin', 409)
+        if(!group.members.includes(newAdminId)) throw new HttpError('User is not a member of the group', 400)
         const isFull = await FullUser.findOne({basicCorrespondent: newAdminId})
-        if(!isFull) throw new HttpError('The user that you want to add as admin does not have a full account', 400)
+        if(!isFull) throw new HttpError('User does not have a full account', 400)
 
         //aggiungo nella lista degli admins
         group.admins.push(newAdminId)
-        if(group.members.includes(newAdminId)){
-            const index = group.members.findIndex(member => String(member)===newAdminId)
-            group.members.splice(index,1)
+        const index = group.members.findIndex(member => String(member)===newAdminId)
+        group.members.splice(index,1)
+
+        //notifica che avvisi l'utente di essere diventato un admin del gruppo
+        const notification = await Notification.findOne({receiver: newAdminId})
+        if(notification){
+            notification.backlog.push(`You become an admin of the group ${group.title}`)
+            await notification.save()
         } else {
-            isFull.groups.push(group._id)
-            await isFull.save()
+            await Notification.create({
+                receiver: newAdminId,
+                backlog: `You become an admin of the group ${group.title}`
+            })
         }
+
         await group.save()
 
         res.status(200).json({ok: true, message:"User add as admin of the group"})
@@ -85,29 +69,33 @@ async function addAdmin(req, res, next){
 // serve per inviare la richiesta ad un utente del portale (che ha creato il gruppo) di diventare un membro del gruppo
 async function addMember(req, res, next){
     const userId = req.user.id;
-    const groupId = req.params.grId;
+    const group = req.group;
     const newMemberId = req.params.id
     try{
-        const group = await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found', 404);
-
-        const portal = await Portal.findById(group.portal)
-        let isAdmin = portal.admins.includes(userId)
-        if(!isAdmin){
-            isAdmin = group.admins.includes(userId)
-            if(!isAdmin){
-                throw new HttpError('You are not Authorized to add a member in the Group', 401)
-            }
-        }
+        //TODO: porre il controllo se la richiesta è stata già effettuata da qualcun altro
 
         //controllo sull'utente che viene aggiunto
         const newMember = await BasicUser.findById(newMemberId)
-        if(!newMember) throw new HttpError('User to add as member does not exist', 404)
-        if(!portal.members.includes(newMemberId)) throw new HttpError('User to add as member is not a member of the portal', 400)
-        if(group.admins.includes(newMemberId)) throw new HttpError('The user is already an admin of the group', 409)
-        if(group.members.includes(newMemberId)) throw new HttpError('The user is already a member of the group', 409)
+        if(!newMember) throw new HttpError('User not found', 404)
+
+        const existingRequest = await Request.findOne({
+            receiver: newMember._id,
+            type: 'group.addMember',
+            extra: group._id
+        });
+
+        if (existingRequest) {
+            throw new HttpError(`Request already made`, 409);
+        }
+
+        const portal = await Portal.findById(group.portal)
+        if(!portal.members.includes(newMemberId)) throw new HttpError('User is not a member of the portal', 400)
+
+        if(group.admins.includes(newMemberId)) throw new HttpError('User is already an admin of the group', 409)
+        if(group.members.includes(newMemberId)) throw new HttpError('User is already a member of the group', 409)
+
         const isFull = await FullUser.findOne({basicCorrespondent: newMemberId})
-        if(!isFull) throw new HttpError('The user that you want to add as member does not have a full account', 400)
+        if(!isFull) throw new HttpError('User does not have a full account', 400)
 
         //creo la request
         await Request.create({
@@ -124,47 +112,26 @@ async function addMember(req, res, next){
     }
 }
 
+//TODO: chiedere come vengono rimossi gli admin o declassati
 async function removeMember(req, res, next){
-    const userId = req.user.id;
-    const groupId = req.params.grId;
-    const memberId = req.params.id
+    const group = req.group;
+    const memberToRemoveId = req.params.id
     try{
-        const group = await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found', 404);
+        if(!group.members.includes(memberToRemoveId)) throw new HttpError('User is not a member',400)
 
-        const portal = await Portal.findById(group.portal)
+        //elimino l'utente dal gruppo
+        let index = group.members.findIndex(member => member.equals(memberToRemoveId))
+        group.members.splice(index,1)
+        await group.save()
 
-        if(group.members.includes(memberId)){
-            //se è un membro può essere eliminato sia da portal che da group admins
-            const isAdminG = group.admins.includes(userId)
-            const isAdminP = portal.admins.includes(userId)
-            if(isAdminG||isAdminP){
-                const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
-                memberFull.groups.splice(memberFull.groups.findIndex(g => g.equals(group._id)),1)
-                await memberFull.save()
-                group.members.splice(group.members.findIndex(u => u.equals(memberId)),1)
-                await group.save()
-            } else {
-                throw new HttpError('You are not Authorized', 401)
-            }
-        } else if(group.admins.includes(memberId)){
-            const isAdminP = portal.admins.includes(userId)
-            const isAdminG = group.admins.includes(userId)
-            if(isAdminP||isAdminG){
-                const memberFull = await FullUser.findOne({basicCorrespondent: memberId})
-                memberFull.groups.splice(memberFull.groups.findIndex(g => g.equals(group._id)),1)
-                await memberFull.save()
-                group.admins.splice(group.admins.findIndex(u => u.equals(memberId)),1)
-                await group.save()
-            } else {
-                throw new HttpError('You are not Authorized', 401)
-            }
-        } else {
-            throw new HttpError('The user is not a member/admin of the group', 400)
-        }
+        //rimuovo il gruppo dalla lista dell'utente
+        const memberToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId})
+        index = memberToRemoveFull.groups.findIndex(group => group.equals(group._id))
+        memberToRemoveFull.groups.splice(index,1)
+        await memberToRemoveFull.save()
 
         //creo notifica che avvisa l'utente di essere stato rimosso dal gruppo
-        const notification = await Notification.findOne({receiver: memberId})
+        let notification = await Notification.findOne({receiver: memberToRemoveId})
         if(notification){
             notification.backlog.push(`You are removed from the group ${group.title}`)
             await notification.save()
@@ -175,7 +142,18 @@ async function removeMember(req, res, next){
             })
         }
 
-        //TODO: creare la notifica anche nel gruppo
+        //creo notifica che avvisa il gruppo
+        notification = await Notification.findOne({receiver: group._id})
+        const memberToRemove = await BasicUser.findById(memberToRemoveId)
+        if(notification){
+            notification.backlog.push(`${memberToRemove.realName} is removed from the group`)
+            await notification.save()
+        } else {
+            await Notification.create({
+                receiver: group._id,
+                backlog: `${memberToRemove.realName} is removed from the group`
+            })
+        }
 
         res.status(200).json({ok: true, message:"The user is removed successfully from the group"})
     }catch(err){

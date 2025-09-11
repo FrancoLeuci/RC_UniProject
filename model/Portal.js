@@ -11,7 +11,7 @@ const PortalSchema = new mongoose.Schema(
         url: { type: String }, //rimanda a un sito associato al portale in questione
 
         // ReferenceMany verso User/Issue/Exposition
-        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin e di quale portale sono portal admin
+        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin
         reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         contactPersons: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         members: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
@@ -32,7 +32,7 @@ const PortalSchema = new mongoose.Schema(
             EXPOSITION_PUBLISHING:{type:Boolean, default:false},
             LIMITED_EXPOSITION_PUBLISHING:{type:Boolean, default:false},
             LINK_EXTERNAL:{type:Boolean, default:false},
-            MEMBERSHIP_SELECTION:{type:Boolean, default:false},
+            MEMBERSHIP_SELECTION:{type:Boolean, default:false}, //
             EXTERNAL_CONTENT:{type:Boolean, default:false},
 
             /*LINK EXTERNAL=Se true, verrà caricato il sito esterno indicato nel campo url invece del portale sul sito, cliccando da quello della pagina RC
