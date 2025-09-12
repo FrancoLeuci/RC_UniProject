@@ -7,8 +7,6 @@ const Notification = require("../model/Notification");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
-//TODO: chiedere se sia per portali/gruppo, o cose simili, quando un utente invia la richiesta di voler diventare un membro, questa richiesta a chi arriva a un solo admin (casuale o meno) o a tutti gli admin?
-
 
 // Richiesta HTTP svolta quando il destinatario della richiesta clicca su Accept
 async function actionRequest(req, res, next) {

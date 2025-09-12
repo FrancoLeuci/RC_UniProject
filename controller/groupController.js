@@ -112,7 +112,7 @@ async function addMember(req, res, next){
     }
 }
 
-//TODO: chiedere come vengono rimossi gli admin o declassati
+//TODO: sia portal_admin che group_admin possono rimuovere gli admin del gruppo
 async function removeMember(req, res, next){
     const group = req.group;
     const memberToRemoveId = req.params.id

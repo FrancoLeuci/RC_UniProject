@@ -11,7 +11,7 @@ require('dotenv').config();
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
-//TODO: LUCIA RICORDA DI DISATTIVARE AVG DEL CAZZO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+//TODO: RICORDA DI DISATTIVARE AVG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const generateTokens=async (userID, roles)=>{
     let dataBase=true;
 

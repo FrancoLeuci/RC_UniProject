@@ -10,13 +10,24 @@ const PortalSchema = new mongoose.Schema(
         issn: { type: String }, //identificatore unico nel mondo, fornito da società internazionale
         url: { type: String }, //rimanda a un sito associato al portale in questione
 
-        // ReferenceMany verso User/Issue/Exposition
         admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin
         reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         contactPersons: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         members: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         issues: [{ type: mongoose.Schema.Types.ObjectId, ref: "Issue" /*da creare*/ }], //pubblicazioni
 
+/* TODO: chiedere se va meglio questa versione del codice per avere la query su un solo array
+        users: [
+            {
+                user: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser, required: true },
+                role: {
+                    type: String,
+                    enum: ["admin", "member", "reviewer", "contactPerson"],
+                    required: true
+                }
+            }
+        ],
+*/
         externalContactPersons: { type: String }, //contatti esterni
         description: { type: String },
         longDescription: { type: String },

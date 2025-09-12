@@ -45,8 +45,9 @@ async function edit (req, res, next){
             portal.viewText = body.viewText
         }
 
-        // roles
+        // array
         if(body.admins){
+
             portal.admins.concat(body.admins)
         }
 

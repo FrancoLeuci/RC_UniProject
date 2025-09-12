@@ -20,18 +20,13 @@ const fullUser= new mongoose.Schema({
         default: Date.now
     },
 
-    //indica se l'utente ha pubblicato almeno un oggetto
-    hasPublicObjects: {
-        type: Boolean,
-        default: false
-    },
 
     groups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Group'
     }],
 
-    researches: [{
+    expositions: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
     }], //id di esposizioni dell'utente (one to many)

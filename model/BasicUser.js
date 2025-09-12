@@ -24,10 +24,6 @@ const basicUserSchema = new mongoose.Schema({
         default: false
     },
 
-    /*approved: {
-        type: Boolean,
-        default: false
-    }, // da basic a full account*/
 
     password: {
         type: String,
@@ -63,12 +59,6 @@ const basicUserSchema = new mongoose.Schema({
         ref: "Portal"
     }],
 
-    /* richieste utente in attesa di accettazione
-    pendingPortals: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Portal"
-    }],*/
-
     roles: [{
         type: String,
         // admin e reviewer potrebbero essere ridondanti. Chiedere o controllare.
@@ -88,22 +78,32 @@ const basicUserSchema = new mongoose.Schema({
             type: String,
             default: "light"
         },
-        // puoi estendere in base al file PHP Settings.php
+        announcements:{
+            type:Boolean,
+            default:false
+        },
+        digest:{
+            type:Boolean,
+            default:false
+        },
+        uploadNotification:{
+            type:Boolean,
+            default:false
+        },
+        messageNotification:{
+          type:Boolean, 
+            default:false
+        },
+        collabNotification:{
+            type:Boolean,
+            default:false
+        }
     },
 
     //TODO: è possibile semplificarla?
-    description: [
-            {
-                lang:{
+    description:{
                     type:String,
-                    enum:["en","ita","por","nld","est","fin","fra","deu","lor","swe","spa","dan","lit"],
-                    default:"en"
                 },
-                content:{
-                    type:String,
-                }
-            }
-    ],
 
     curriculumVitae: {
         type: mongoose.Schema.Types.ObjectId,
@@ -130,6 +130,7 @@ const basicUserSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
     }], // TODO: da testare dopo la creazione del modello Esposizione
+    
 
 },{timestamps:true});
 

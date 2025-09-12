@@ -67,7 +67,6 @@ async function newUser(req,res,next) {
     }
 }
 
-//TODO: vedere come implementare la ricerca se una richiesta simile è stata già mandata all'utente che si vuole aggiungere
 async function addToPortal(req,res,next){
     const portal=req.portal;
     const newMemberId=req.params.id;
@@ -129,7 +128,7 @@ async function removeFromPortal(req,res,next){
             //return res.status(400).json({message: "L'utente non è membro del portale"})
         }
 
-        //TODO: chiedere se è necessario inviare anche una notifica per la rimozione dai gruppi del portale a cui faceva parte
+        //TODO: sistemare con l'eliminazione anche dai gruppi e non solo dal FullUser
         const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId})
         if(userToRemoveFull) {
             userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.portal!==portal._id)
@@ -139,23 +138,23 @@ async function removeFromPortal(req,res,next){
         //creo notifica che avvisa l'utente di essere stato rimosso dal portale
         let notification = await Notification.findOne({receiver: memberToRemoveId})
         if(notification){
-            notification.backlog.push(`You are removed from the portal ${portal.name}`)
+            notification.backlog.push(`You were removed from the portal ${portal.name}`)
             await notification.save()
         } else {
             await Notification.create({
                 receiver: memberToRemoveId,
-                backlog: `You are removed from the portal ${portal.name}`
+                backlog: `You were removed from the portal ${portal.name} and from all its groups.`
             })
         }
 
         notification = await Notification.findOne({receiver: portal._id})
         if(notification){
-            notification.backlog.push(`${userToRemove.realName} is removed from the portal`)
+            notification.backlog.push(`${userToRemove.realName} was removed from the portal`)
             await notification.save()
         } else {
             await Notification.create({
                 receiver: portal._id,
-                backlog: `${userToRemove.realName} is removed from the portal`
+                backlog: `${userToRemove.realName} was removed from the portal`
             })
         }
 
@@ -167,7 +166,8 @@ async function removeFromPortal(req,res,next){
     }
 }
 
-async function editUser(req, res, next){
+//TODO: chiedere al prof
+/*async function editUser(req, res, next){
     const userId = req.params.id;
     const body = req.body;
     const portal = req.portal
@@ -190,10 +190,10 @@ async function editUser(req, res, next){
             user.realName = body.name;
         }
 
-        /*if(userFull && body.alias){
+        if(userFull && body.alias){
             userFull.alias = body.alias; //campo di FullUser
             await userFull.save()
-        }*/
+        }
 
         if(body.email){
             user.email = body.email;
@@ -221,7 +221,7 @@ async function editUser(req, res, next){
         //res.status(500).json({error: "Internal Server Error"});
     }
 }
-
+*/
 //TODO: chidere a F se ha senso tenerlo dato che il prof ha detto che basta 1 portale per ogni casistica e reputo strano che un admin possa chiedere che un utente diventi membro di un altro portale
 /*async function addToOtherPortal(req,res,next){
     //serve il middleware solo per assicurarsi che il portal admin sia effettivamente portal admin e possa eseguire questa azione sull'utente
@@ -335,4 +335,4 @@ async function deleteGroup(req, res, next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, createGroup, deleteGroup}
+module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup}

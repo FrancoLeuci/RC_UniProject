@@ -11,6 +11,7 @@ La visibilità del Gruppo, come per i Portali o i Set, può essere:
 Il Gruppo potrà essere eliminato quando sarà privo di membri o di esposizioni ad esso collegate.
 */
 const mongoose = require("mongoose");
+const Exposition=require("./Exposition")
 
 const FullUser = require("./FullUser");
 const Portal = require("./Portal");
@@ -33,7 +34,7 @@ const groupSchema = new mongoose.Schema({
         enum: ['private','website','public'],
         default: 'private'
     },
-    admins: [{ //possono essere scelti solo dai portal_admin
+    admins: [{ //possono essere scelti solo dai portal_admin,
         type: mongoose.Schema.Types.ObjectId,
         ref: "FullUser",
         default: []
@@ -51,14 +52,15 @@ const groupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: Image
     },
-    expositions: [{
+
+
+    //TODO: CHIEDERE COSA SI INTENDE PER GRUPPO IN FUNZIONE DELL'ESPOSIZIONE.
+    //io posso creare un'expo e condividerla con un gruppo, ma il gruppo cosa può fare?
+    expositions:[{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Exposition'
-    }], //porrò sia le esposizioni create
-    connection: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Exposition'
-    }] //porrò solo le esposizioni collegate
+        ref: Exposition
+    }], //porrò le esposizioni
+
 },{timestamps:true});
 
 module.exports = mongoose.model('Group', groupSchema);

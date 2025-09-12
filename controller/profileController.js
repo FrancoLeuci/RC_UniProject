@@ -48,13 +48,11 @@ async function editProfile(req, res, next){
 
         //description
         if(body.description){
-            for(const item of body.description){
-                if(user.description.find(userItem=>userItem.lang===item.lang)){
-                    user.description.find(userItem=>userItem.lang===item.lang).content = item.content;
-                }else{
-                    user.description.push(item)
-                }
-            }
+            user.description=body.description;
+        }
+
+        if(body.hide){
+            user.hide = body.hide
         }
 
         await user.save()
@@ -67,10 +65,38 @@ async function editProfile(req, res, next){
     }
 }
 
-//TODO: completare, vedere dove sono posizionati i campi per gli annunci, ecc...
-async function editSettings(req, res){
+async function editSettings(req,res,next){
+    //settings è un oggetto che contiene language, theme,announcements, digest, collabNotification,messageNotification e uploadNotification
+    const {settings} = req.body;
+    const userId = req.user.id //ottenuto da verifyToken
+
+    try{
+        const user = await BasicUser.findById(userId)
+        if(settings.language!==this.language){
+            user.settings.language=settings.language;
+        }
+        if(settings.theme!==this.theme){
+            user.settings.theme=settings.theme;
+        }
+
+        user.settings.announcement=settings.announcement
+        user.settings.digest=settings.digest
+        user.settings.uploadNotification=setting.uploadNotification
+        user.settings.messageNotification=setting.messageNotification
+        user.settings.collabNotification=settings.collabNotification
+
+        await user.save()
+        res.status(200).send("Settings updated.");
+
+
+    }catch(err){
+        next(err)
+        //console.error(err.message);
+        //res.status(500).json({error: "Internal Server Error"})
+    }
 
 }
+
 
 async function editPassword(req, res, next){
     const {newPass, conNewPass} = req.body;
@@ -117,7 +143,6 @@ async function getAllUsers(req, res, next){
     }
 }
 
-//TODO: sistemare la questione del hide
 async function getUserView(req, res, next){
     //nella richiesta ci deve essere lo userId di chi fa la richiesta
     //cioè di chi vuole vedere l'account dell'utente con id=profileId
