@@ -2,6 +2,7 @@ const BasicUser = require("../../model/BasicUser");
 const FullUser = require("../../model/FullUser");
 const Request = require("../../model/Request");
 const Group = require("../../model/Group")
+const Exposition = require("../../model/Exposition");
 const Notification = require("../../model/Notification");
 
 const {HttpError} = require("../../middleware/errorMiddleware");
@@ -400,6 +401,33 @@ async function removeReviewer(req,res,next) {
         }
 
         res.status(200).send('Reviewer removed successfully. ')
+    }catch(err){
+        next(err)
+    }
+}
+
+async function selectReviewer(req,res,next){
+    const portal = req.portal
+    const {reviewerId} = req.body
+    const requestId = req.params.reqId
+    try{
+        const request = await Request.findById(requestId)
+        if(!request) throw new HttpError('Request not found',404)
+        if(request.type!=="portal.requestToLinkExposition") throw new HttpError('Wrong request type. ',400)
+
+        if(!portal.reviewers.includes(reviewerId)) throw new HttpError('Reviewer not found',404)
+
+        const expo = await Exposition.findById(request.extra)
+        expo.reviewer = {
+            flag: true,
+            user: reviewerId
+        }
+        expo.shareStatus = 'reviewing'
+        await expo.save()
+
+        await request.findByIdAndDelete(requestId)
+
+        res.status(200).send('Reviewer selected.')
     }catch(err){
         next(err)
     }

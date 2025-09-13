@@ -48,6 +48,7 @@ async function setExpoPublic(req,res,next){
     const expo=req.expo
     const fullAccount=req.full
 
+
     try{
         const creator=expo.authors.find(a=>a.role==="creator")
 
@@ -55,6 +56,28 @@ async function setExpoPublic(req,res,next){
             throw new HttpError('You are not the creator',401)
         }
 
+        if(expo.portal){
+            const existingRequest = await Request.findOne({
+                sender: fullAccount._id,
+                receiver: expo.portal,
+                type: "portal.requestToLinkExposition",
+                extra: expo._id
+            })
+
+            if(existingRequest) throw new HttpError('Request already made to the portal',409)
+
+            if(!expo.reviewer.flag){
+                await Request.create({
+                    sender: fullAccount._id,
+                    receiver: expo.portal,
+                    type: "portal.requestToLinkExposition",
+                    content: `${expoCreator.realName} want to publish the exposition ${expo.title}.`,
+                    extra: expo._id
+                })
+            }
+
+            throw new HttpError("You are not authorized to publish, contact the reviewer/portal admin. ",401)
+        }
         expo.published=true;
         await expo.save()
 
@@ -230,6 +253,25 @@ async function connectToPortal(req,res,next){
         })
 
         res.status(200).send('Request sent successfully.')
+    }catch(err){
+        next(err)
+    }
+}
+
+async function editExposition(req,res,next){
+    const {HTMLString}=req.body;
+    const userId=req.user.id
+    const expo=req.expo
+    try{
+        if(!expo.authors.find(a=>String(a.userId)===userId)){
+            throw new HttpError("Can't save the changes unless you are an author. No changes saved. ",403)
+        }
+        if(!HTMLString){
+            throw new HttpError("Html string received was null. No changes saved.",400)
+        }
+        expo.HTMLString=HTMLString  
+        await expo.save();
+        res.status(201).send("Exposition was successfully edited and saved. ")
     }catch(err){
         next(err)
     }

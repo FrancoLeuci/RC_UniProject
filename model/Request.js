@@ -13,6 +13,7 @@ const requestSchema = new mongoose.Schema({
             // portal
             "portal.addMember", //svolta dal portale verso un utente
             "portal.requestToAccess", //svolta dall'utente verso un portale
+            "portal.requestToLinkExposition", //dal creatore verso un portale
             // group
             "group.addMember", //svolta dal gruppo verso un utente
             "group.requestToAccess", //svolta dall'utente verso il gruppo

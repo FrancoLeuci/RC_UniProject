@@ -2,6 +2,7 @@ const mongoose=require("mongoose");
 const FullUser=require("FullUser")
 const Media=require("Media")
 const Portal=require("Portal")
+const BasicUser=require("BasicUser")
 
 const ExpositionSchema=new mongoose.Schema({
     title:{
@@ -18,7 +19,7 @@ const ExpositionSchema=new mongoose.Schema({
 
     shareStatus:{
         type:String,
-        enum:["private","public","portal"],
+        enum:["private","public","portal","reviewing"],
         default:"private",
         required:true,
     },
@@ -45,7 +46,6 @@ const ExpositionSchema=new mongoose.Schema({
     licence:{
         type:String,
         enum:["All rights reserved","CC", "BY","NC","SA","ND", "Public domain"],
-        default:"All rights reserved",
         required:true,
     },
     //lista dei media utilizzati nell'esposizione da cui ricaveremo il copyright e le license
@@ -57,6 +57,18 @@ const ExpositionSchema=new mongoose.Schema({
     portal:{
         type:mongoose.Schema.Types.ObjectId,
         ref:Portal
+    },
+
+    //utilizzato quando l'esposizione è collegata ad un portale ed il creatore fa richiesta di revisione di quest'ultima
+    reviewer:{
+        flag:{
+            type: Boolean,
+            default: false
+        },
+        user:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:BasicUser
+        }
     },
 
     //l'editor tira fuori una Stringa assurda in html, poi nel load carica direttamente da quella.
