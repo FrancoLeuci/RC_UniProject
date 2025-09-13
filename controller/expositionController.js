@@ -1,16 +1,17 @@
-//modifica metadati di un'esposizione
-//funzione di creazione dell'esposizione -> titolo,descrizione, ecc....
-//funzione che gestisce la lista dei co-autori -> aggiungere(richiesta) e rimuovere
-//funzione di richiesta di collegare l'esposizione ad un portale
+
 //funzione di richiesta di review
 
 const FullUser = require("../model/FullUser");
+const BasicUser = require('../model/BasicUser');
 const Exposition=require("../model/Exposition");
+const Request = require("../model/Request");
+const Portal = require("../model/Portal");
+const Notification = require("../model/Notification");
 
 const {HttpError} = require("../middleware/errorMiddleware")
 
 async function createExposition(req,res,next){
-    const userId=req.user.id;
+    const userId = req.user.id;
     //servono nella richiesta nel body (minimo indisp)
     const {title,abstract,copyright,license}=req.body;
 
@@ -30,7 +31,7 @@ async function createExposition(req,res,next){
             license,
             authors:{
                 role:"creator",
-                userId
+                user: isFull._id
             }
         })
 
@@ -45,18 +46,192 @@ async function createExposition(req,res,next){
 
 async function setExpoPublic(req,res,next){
     const expo=req.expo
-    const fullAccount=req.fullAccount
+    const fullAccount=req.full
 
     try{
         const creator=expo.authors.find(a=>a.role==="creator")
 
-        if(String(creator.userId)===fullAccount._id){
-            expo.published=true;
-            await expo.save()
+        if(!creator.userId.equals(fullAccount._id)){
+            throw new HttpError('You are not the creator',401)
         }
+
+        expo.published=true;
+        await expo.save()
+
+        res.status(200).json({ok: true, message:'Exposition published successfully.'})
     }catch(err){
         next(err)
     }
 }
 
-module.exports = {createExposition, setExpoPublic}
+async function editExpoMetadata(req,res,next){
+    const user=req.full;
+    const expo=req.expo;
+    const {title,shareStatus,abstract,licence,copyright} = req.body
+    try{
+        if(expo.published){throw new HttpError("Cannot modify this exposition's metadata since it has been published already. ",403)}
+
+        const isAuthor=expo.authors.find(a=>a.userId===user._id)
+        if(!isAuthor){
+            throw new HttpError("You can't edit this exposition's metadata. ",403)
+        }
+        if(title){
+            expo.title=title
+        }
+
+
+        if(abstract){
+            expo.abstract=abstract;
+        }
+
+        expo.shareStatus=shareStatus;
+        expo.licence=licence;
+        expo.copyright=copyright;
+
+        await expo.save();
+        res.status(201).send("Exposition edited correctly.")
+    }catch(err){
+        next(err)
+
+    }
+}
+
+//solo il creatore dell'esposizione può fare richiesta ad altri utenti di partecipare
+async function addAuthor(req,res,next){
+    const user = req.full;
+    const expo = req.expo;
+    const authorToAddId = req.params.id
+    try{
+        const isCreator = expo.authors.find(a=>a.role==="creator")
+        if(!isCreator.userId.equals(user._id)){
+            console.log("errore in addAuthor - isCreator? ")
+            throw new HttpError('You are not the creator of the exposition.',401)
+        }
+
+        const authorToAdd = await FullUser.findOne({basicCorrespondent: authorToAddId})
+        if(!authorToAdd) throw new HttpError ('User that you want to add does not have a full account',400)
+
+        if(expo.authors.find(a=>a.userId===authorToAdd._id)){
+            throw new HttpError("User already is an Author in this exposition. ",409)
+        }
+
+        const requestExists = await Request.findOne({
+            sender: user.basicCorrespondent,
+            receiver: authorToAddId,
+            type: "collaboration.addUser",
+            extra: expo._id
+        })
+
+        if(requestExists) throw new HttpError('You already made the request',409)
+
+        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+        const authorToAddBasic = await BasicUser.findById(authorToAddId)
+
+        await Request.create({
+            sender: user.basicCorrespondent,
+            receiver: authorToAddId,
+            type: "collaboration.addUser",
+            content: `${expoCreator.realName} invited ${authorToAddBasic.realName} to be an Author.`,
+            extra: expo._id
+        })
+
+        res.status(200).send('Request sent successfully.')
+    }catch(err){
+        next(err)
+    }
+}
+
+async function removeAuthor(req,res,next){
+    const user = req.full;
+    const expo = req.expo;
+    const authorToRemoveId = req.params.id
+    try{
+        const isCreator = expo.authors.find(a=>a.role==="creator")
+        //salvini
+        if(!isCreator.userId.equals(user._id)){
+            console.log("errore in addAuthor - isCreator? ")
+            throw new HttpError('You are not the creator of the exposition. ',401)
+        }
+
+        const authorToRemove = await FullUser.findOne({basicCorrespondent: authorToRemoveId})
+        if(!authorToRemove) throw new HttpError ('User that you want to remove does not have a full account. ',400) //consistenza
+
+        if(!expo.authors.find(a=>a.userId===authorToAdd._id)){
+            throw new HttpError("User is not an Author in this exposition. ",404)
+        }
+        expo.authors=expo.authors.filter(a=> a.userId!==authorToRemove._id)
+        await expo.save();
+
+        //fase di creazione della notifica
+        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+
+        //notifica che avvisa l'autore rimosso
+        //e c'hai ragione XD
+        const notification = await Notification.findOne({receiver: authorToRemoveId})
+        if(notification){
+            notification.backlog.push(`You were removed by ${expoCreator.realName} from the exposition`)
+            await notification.save() //sta qui
+        } else {
+            await Notification.create({
+                receiver: authorToRemoveId,
+                backlog: `You were removed by ${expoCreator.realName} from the exposition`
+            })
+        }
+
+        res.status(200).send("Author removed from the exposition. Notification sent. ")
+    }catch(err){
+        next(err)
+    }
+}
+
+
+async function connectToPortal(req,res,next){
+    const user = req.full;
+    const expo = req.expo;
+    const portalId = req.params.portalId
+    try{
+        const isCreator = expo.authors.find(a=>a.role==="creator")
+        if(!isCreator.userId.equals(user._id)){
+            console.log("errore in addAuthor - isCreator? ")
+            throw new HttpError('You are not the creator of the exposition.',401)
+        }
+        if(expo.portal){
+            throw new HttpError("Expo is already connected to a Portal. ")
+        }
+
+        const portal = await Portal.findById(portalId)
+        if(!portal) throw new HttpError('Portal not found',404)
+
+        const isMember=portal.members.includes(user.basicCorrespondent)
+        const isAdmin=portal.admins.includes(user.basicCorrespondent)
+
+        if(!(isMember||isAdmin)){
+            throw new HttpError("User is not a member/admin of the portal. You can't forward the request. ",403)
+        }
+
+
+        const requestExists = await Request.findOne({
+            sender: user.basicCorrespondent,
+            receiver: portalId,
+            type: "collaboration.requestToPortal",
+            extra: expo._id
+        })
+
+        if(requestExists) throw new HttpError('You already made the request. ',409)
+
+        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+
+        await Request.create({
+            sender: user.basicCorrespondent,
+            receiver: portalId,
+            type: "collaboration.requestToPortal",
+            content: `${expoCreator.realName} wants to connect his exposition to ${portal.name}.`,
+            extra: expo._id
+        })
+
+        res.status(200).send('Request sent successfully.')
+    }catch(err){
+        next(err)
+    }
+}
+module.exports = {createExposition,setExpoPublic,editExpoMetadata,addAuthor,removeAuthor}

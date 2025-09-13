@@ -32,7 +32,7 @@ const AbstractMediaSchema = new mongoose.Schema({
 
     copyright: {type: String, required: true},
 
-    license:{type:String,
+    licence:{type:String,
         enum:["All rights reserved","CC", "BY","NC","SA","ND", "Public domain"],
         default:"All rights reserved",
         required:true,}

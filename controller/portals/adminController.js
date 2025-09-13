@@ -335,4 +335,74 @@ async function deleteGroup(req, res, next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup}
+async function addReviewer(req,res,next){
+    //arriva il portale dal middleware, user è admin
+    const portal=req.portal;
+    const user=req.user.id;
+    const memberToReviewer=req.params.id
+
+    try{
+
+        const isMember=portal.members.includes(memberToReviewer)
+        const isAdmin=portal.admins.includes(memberToReviewer)
+        if(!(isMember||isAdmin)){
+            throw new HttpError("User can't be a reviewer if he's not a member of the portal. ",400)
+        }
+        //basic user può essere un reviewer
+
+        if(portal.reviewers.includes(memberToReviewer)){
+            throw new HttpError("User already is a Reviewer. ",409)
+        }
+
+        portal.reviewers.push(memberToReviewer);
+        await portal.save();
+
+        const notification = await Notification.findOne({receiver: memberToReviewer})
+        if(notification){
+            notification.backlog.push(`You became a reviewer of the portal: ${portal.name}`)
+            await notification.save() //sta qui
+        } else {
+            await Notification.create({
+                receiver: memberToReviewer,
+                backlog: `You became a reviewer of the portal: ${portal.name}`
+            })
+        }
+
+        res.status(200).send('Reviwer add successfully')
+    }catch(err){
+        next(err)
+    }
+
+}
+
+async function removeReviewer(req,res,next) {
+    const portal=req.portal;
+    const reviewerToRemove=req.params.id
+    try{
+        //basic user può essere un reviewer
+        if(!portal.reviewers.includes(reviewerToRemove)){
+            throw new HttpError("User is not a Reviewer. ",404)
+        }
+
+        portal.reviewers=portal.reviewers.filter(a=>a!==reviewerToRemove);
+        await portal.save();
+
+
+        const notification = await Notification.findOne({receiver: reviewerToRemove})
+        if(notification){
+            notification.backlog.push(`You're not a reviewer of ${portal.name} anymore. `)
+            await notification.save() //sta qui
+        } else {
+            await Notification.create({
+                receiver: reviewerToRemove,
+                backlog: `You're not a reviewer of the portal ${portal.name} anymore. `
+            })
+        }
+
+        res.status(200).send('Reviewer removed successfully. ')
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer, removeReviewer}

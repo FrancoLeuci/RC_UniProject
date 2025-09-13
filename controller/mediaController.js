@@ -50,11 +50,11 @@ async function uploadFile(req,res,next){
         const path=req.file.path;
         //Dalla req prende i campi description e tags. Possono anche essere vuoti dal momento che non sono required nel db
         //description è un semplice stringa e lo posso mettere direttamente in media
-        //license di default è settata a "All rights reserved"
+        //licence di default è settata a "All rights reserved"
 
 
         //nel body, se si sta facendo upload di un'immagine di profilo di un portale, va inserito il portalId FRONTEND
-        const {description,tagsString,copyright,license,isProfilePic,isCurriculumVitae,isPortalPic,portalId}=req.body;
+        const {description,tagsString,copyright,licence,isProfilePic,isCurriculumVitae,isPortalPic,portalId}=req.body;
         if((isProfilePic||isPortalPic) && !(file.mimetype.startsWith("image/"))){
             throw new HttpError("The file must be an Image. (Profile/Portal Picture)",400)
             //return res.status(400).json({ok:false,message:"The file must be an Image. (Profile Picture)"})
@@ -79,7 +79,7 @@ async function uploadFile(req,res,next){
             uploadedBy: userId,
             description,
             copyright,
-            license
+            licence
         }
         if(tagsString){
             const lowertags=tagsString.toLowerCase(); //tutto lowercase, salvini non ha mai avuto buone idee

@@ -6,7 +6,7 @@ const Group = require('./Group')
 const fullUser= new mongoose.Schema({
     basicCorrespondent:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'BasicUser'
+        ref: BasicUser
     },
 
     alias:{
@@ -30,10 +30,6 @@ const fullUser= new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
     }], //id di esposizioni dell'utente (one to many)
-    works: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Work"
-    }], //id di lavori dell'utente (one to many)
 
 })
 

@@ -2,6 +2,7 @@ const BasicUser = require("../model/BasicUser");
 const FullUser = require("../model/FullUser");
 const Portal = require("../model/Portal");
 const Group = require("../model/Group");
+const Exposition = require("../model/Exposition")
 const Request = require("../model/Request");
 const Notification = require("../model/Notification");
 
@@ -52,6 +53,34 @@ async function actionRequest(req, res, next) {
                 const user2 = await BasicUser.findById(request.sender)
                 user2.portals.push(portal._id)
                 await user2.save()
+            }
+        }
+
+        //gestione delle collaborazioni delle esposizioni
+        if(request.type==='collaboration.addUse'){
+            if(action==="accepted"){
+                const expo = await Exposition.findById(request.extra)
+                const receiverFull = await FullUser.findOne({basicCorrespondent: request.receiver})
+                expo.authors.push({
+                    role: 'co-author',
+                    userId: receiverFull._id
+                })
+                await expo.save()
+                
+                receiverFull.expositions.push(request.extra)
+                await receiverFull.save()
+            }
+        } else if(request.type==='collaboration.requestToPortal'){
+            const portal = await Portal.findById(request.receiver)
+            //verifico che colui che compie l'azione sia un admin del portale
+            if(!portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
+            if(action==="accepted"){
+                portal.expositionsLinked.push(request.extra)
+                await portal.save()
+
+                const expo = await Exposition.findById(request.extra)
+                expo.portal=portal._id
+                await expo.save()
             }
         }
 

@@ -7,8 +7,9 @@ const requestSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: [
-            // collaboration
+            // collaboration - riguarda le esposizioni
             "collaboration.addUser", //solo il creatore può chiedere ad altre persone di collaborare
+            "collaboration.requestToPortal", //autore di un esposizione chiede ad un portale (di cui è membro) di collegare quest'ultima
             // portal
             "portal.addMember", //svolta dal portale verso un utente
             "portal.requestToAccess", //svolta dall'utente verso un portale

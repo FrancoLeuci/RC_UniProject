@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const BasicUser=require('./BasicUser')
 const {Image} = require("./Media");
+const Exposition=require("./Exposition");
 
 const PortalSchema = new mongoose.Schema(
     {
@@ -34,8 +35,6 @@ const PortalSchema = new mongoose.Schema(
         viewText: { type: String }, //navbar delle esposizioni
 
         issueList: { type: [String], default: [] },
-        textExpositionTemplates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exposition" }],
-
         //oggetto opzioni:
 
         features: {
@@ -58,6 +57,11 @@ const PortalSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: Image
         },
+
+        expositionsLinked:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:Exposition
+        }
     }, { timestamps: true }
 )
 

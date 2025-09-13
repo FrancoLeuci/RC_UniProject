@@ -100,10 +100,9 @@ const basicUserSchema = new mongoose.Schema({
         }
     },
 
-    //TODO: è possibile semplificarla?
     description:{
-                    type:String,
-                },
+        type:String,
+    },
 
     curriculumVitae: {
         type: mongoose.Schema.Types.ObjectId,
