@@ -1,6 +1,9 @@
 const Exposition = require('../model/Exposition')
 const BasicUser=require('../model/BasicUser')
+const FullUser = require('../model/FullUser')
 const Portal = require('../model/Portal')
+
+const {HttpError} = require('../middleware/errorMiddleware')
 //prendere la lista di revisioni del singolo reviewer
 //approvazione/disapprovazione revisione(notifica)
 //note (?)
@@ -30,7 +33,7 @@ async function expoStatus(req, res, next){
         const expo = await Exposition.findById(expoId)
         if(!expo) throw new HttpError('Exposition not found',404)
 
-        if(!expo.reviewer.user.equals(reviewer)) throw new HttpError('You are not the reviewer. ',401)
+        if(!expo.reviewer.user.equals(reviewer)) throw new HttpError('You are not the reviewer.',401)
 
         const notificationReviewer = await Notification.findOne({receiver: reviewer})
         const creator = expo.authors.find(a => a.role==="creator")

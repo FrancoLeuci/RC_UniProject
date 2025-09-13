@@ -1,8 +1,8 @@
 const mongoose=require("mongoose");
-const FullUser=require("FullUser")
-const Media=require("Media")
-const Portal=require("Portal")
-const BasicUser=require("BasicUser")
+const FullUser=require("./FullUser")
+const Media=require("./Media")
+const Portal=require("./Portal")
+const BasicUser=require("./BasicUser")
 
 const ExpositionSchema=new mongoose.Schema({
     title:{
@@ -32,7 +32,7 @@ const ExpositionSchema=new mongoose.Schema({
         },
         userId:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:FullUser
+            ref:"FullUser"
         }
     }],
 
@@ -51,12 +51,12 @@ const ExpositionSchema=new mongoose.Schema({
     //lista dei media utilizzati nell'esposizione da cui ricaveremo il copyright e le license
     media:[{
             type:mongoose.Schema.Types.ObjectId,
-            ref:Media
+            ref:"Media"
     }],
 
     portal:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:Portal
+        ref:"Portal"
     },
 
     //utilizzato quando l'esposizione è collegata ad un portale ed il creatore fa richiesta di revisione di quest'ultima
@@ -67,7 +67,7 @@ const ExpositionSchema=new mongoose.Schema({
         },
         user:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:BasicUser
+            ref:"BasicUser"
         }
     },
 

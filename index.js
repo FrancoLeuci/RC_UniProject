@@ -11,6 +11,7 @@ const setRoutes=require('./routes/setRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const expositionRoutes = require('./routes/expositionRoutes')
+const reviewerRoutes = require('./routes/reviewerRoutes');
 
 const {errorHandler} = require("./middleware/errorMiddleware");
 
@@ -29,6 +30,7 @@ app.use("/api/set", setRoutes)
 app.use("/api/requests", requestRoutes)
 app.use("/api/group", groupRoutes)
 app.use("/api/expo", expositionRoutes)
+app.use("/api/reviewer", reviewerRoutes)
 
 app.use(errorHandler)
 

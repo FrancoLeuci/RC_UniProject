@@ -68,6 +68,7 @@ async function newUser(req,res,next) {
     }
 }
 
+//TODO: quando un membro diviene reviewer deve rimanere nella lista dei membri del portale?
 async function addToPortal(req,res,next){
     const portal=req.portal;
     const newMemberId=req.params.id;
@@ -111,6 +112,7 @@ async function addToPortal(req,res,next){
     }
 }
 
+//TODO: non è stato inserito il codice che elimini dalla lista dei reviewer del portale il reviewer da eliminare
 async function removeFromPortal(req,res,next){
     const portal=req.portal;
     const memberToRemoveId=req.params.id;
@@ -347,12 +349,12 @@ async function addReviewer(req,res,next){
         const isMember=portal.members.includes(memberToReviewer)
         const isAdmin=portal.admins.includes(memberToReviewer)
         if(!(isMember||isAdmin)){
-            throw new HttpError("User can't be a reviewer if he's not a member of the portal. ",400)
+            throw new HttpError("User can't be a reviewer if he's not a member of the portal.",400)
         }
         //basic user può essere un reviewer
 
         if(portal.reviewers.includes(memberToReviewer)){
-            throw new HttpError("User already is a Reviewer. ",409)
+            throw new HttpError("User already is a Reviewer.",409)
         }
 
         portal.reviewers.push(memberToReviewer);
@@ -369,7 +371,7 @@ async function addReviewer(req,res,next){
             })
         }
 
-        res.status(200).send('Reviwer add successfully')
+        res.status(200).send('Reviewer add successfully')
     }catch(err){
         next(err)
     }
@@ -382,7 +384,7 @@ async function removeReviewer(req,res,next) {
     try{
         //basic user può essere un reviewer
         if(!portal.reviewers.includes(reviewerToRemove)){
-            throw new HttpError("User is not a Reviewer. ",404)
+            throw new HttpError("User is not a Reviewer.",404)
         }
 
         portal.reviewers=portal.reviewers.filter(a=>a!==reviewerToRemove);
@@ -400,7 +402,7 @@ async function removeReviewer(req,res,next) {
             })
         }
 
-        res.status(200).send('Reviewer removed successfully. ')
+        res.status(200).send('Reviewer removed successfully.')
     }catch(err){
         next(err)
     }
@@ -413,7 +415,7 @@ async function selectReviewer(req,res,next){
     try{
         const request = await Request.findById(requestId)
         if(!request) throw new HttpError('Request not found',404)
-        if(request.type!=="portal.requestToLinkExposition") throw new HttpError('Wrong request type. ',400)
+        if(request.type!=="portal.requestToLinkExposition") throw new HttpError('Wrong request type.',400)
 
         if(!portal.reviewers.includes(reviewerId)) throw new HttpError('Reviewer not found',404)
 
@@ -433,4 +435,4 @@ async function selectReviewer(req,res,next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer, removeReviewer}
+module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer, removeReviewer, selectReviewer}

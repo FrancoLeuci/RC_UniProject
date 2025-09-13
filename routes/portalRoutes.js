@@ -1,7 +1,7 @@
 const express = require('express')
 
 const {edit, getAllInfo, getPortals} = require('../controller/portals/portalController')
-const {newUser, addToPortal, removeFromPortal, editUser, getPortalMembers, createGroup, deleteGroup} = require('../controller/portals/adminController')
+const {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer, removeReviewer, selectReviewer} = require('../controller/portals/adminController')
 
 const {verifyToken} = require('../middleware/authMiddleware')
 const {portalAdminCheck} = require('../middleware/p_adminMiddleware')
@@ -16,8 +16,12 @@ router.put('/:portal/edit', verifyToken, portalAdminCheck, edit)
 router.post('/:portal/members/create', verifyToken, portalAdminCheck, newUser)
 router.put('/:portal/members/:id', verifyToken, portalAdminCheck, addToPortal)
 router.delete('/:portal/member/:id', verifyToken, portalAdminCheck, removeFromPortal)
-router.put('/:portal/members/edit/:id', verifyToken, portalAdminCheck, editUser)
 router.get('/:portal/members', verifyToken, portalAdminCheck, getPortalMembers)
+
+//gestione dei reviewer del portale
+router.put('/:portal/addReviewer/:id', verifyToken, portalAdminCheck, addReviewer)
+router.put('/:portal/removeReviewer/:id', verifyToken, portalAdminCheck, removeReviewer)
+router.post('/:portal/selectReviewer/:reqId', verifyToken, portalAdminCheck, selectReviewer)
 
 //gestione dei gruppi del portale
 router.post('/:portal/group/create', verifyToken, portalAdminCheck, createGroup)

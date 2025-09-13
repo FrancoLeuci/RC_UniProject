@@ -1,6 +1,3 @@
-
-//funzione di richiesta di review
-
 const FullUser = require("../model/FullUser");
 const BasicUser = require('../model/BasicUser');
 const Exposition=require("../model/Exposition");
@@ -13,7 +10,7 @@ const {HttpError} = require("../middleware/errorMiddleware")
 async function createExposition(req,res,next){
     const userId = req.user.id;
     //servono nella richiesta nel body (minimo indisp)
-    const {title,abstract,copyright,license}=req.body;
+    const {title,abstract,copyright,licence}=req.body;
 
 
     try{
@@ -22,13 +19,13 @@ async function createExposition(req,res,next){
             throw new HttpError("You are not a Full User, so you can't create an Exposition.",403)
         }
 
-        if(!title||!abstract||!copyright||!license) throw new HttpError("All data specified are required. ",400)
+        if(!title||!abstract||!copyright||!licence) throw new HttpError("All data specified are required.",400)
 
         const newExpo=await Exposition.create({
             title,
             abstract,
             copyright,
-            license,
+            licence,
             authors:{
                 role:"creator",
                 user: isFull._id
@@ -76,7 +73,7 @@ async function setExpoPublic(req,res,next){
                 })
             }
 
-            throw new HttpError("You are not authorized to publish, contact the reviewer/portal admin. ",401)
+            throw new HttpError("You are not authorized to publish, contact the reviewer/portal admin.",401)
         }
         expo.published=true;
         await expo.save()
@@ -87,16 +84,17 @@ async function setExpoPublic(req,res,next){
     }
 }
 
+//TODO: inserire se l'esposizione è in status di reviewing
 async function editExpoMetadata(req,res,next){
     const user=req.full;
     const expo=req.expo;
     const {title,shareStatus,abstract,licence,copyright} = req.body
     try{
-        if(expo.published){throw new HttpError("Cannot modify this exposition's metadata since it has been published already. ",403)}
+        if(expo.published){throw new HttpError("Cannot modify this exposition's metadata since it has been published already.",403)}
 
         const isAuthor=expo.authors.find(a=>a.userId===user._id)
         if(!isAuthor){
-            throw new HttpError("You can't edit this exposition's metadata. ",403)
+            throw new HttpError("You can't edit this exposition's metadata.",403)
         }
         if(title){
             expo.title=title
@@ -135,7 +133,7 @@ async function addAuthor(req,res,next){
         if(!authorToAdd) throw new HttpError ('User that you want to add does not have a full account',400)
 
         if(expo.authors.find(a=>a.userId===authorToAdd._id)){
-            throw new HttpError("User already is an Author in this exposition. ",409)
+            throw new HttpError("User already is an Author in this exposition.",409)
         }
 
         const requestExists = await Request.findOne({
@@ -164,6 +162,7 @@ async function addAuthor(req,res,next){
     }
 }
 
+//TODO: rimuovere dalla lista delle esposizioni dell'autore rimosso l'id dell'esposizione che lo rimuove
 async function removeAuthor(req,res,next){
     const user = req.full;
     const expo = req.expo;
@@ -173,14 +172,15 @@ async function removeAuthor(req,res,next){
         //salvini
         if(!isCreator.userId.equals(user._id)){
             console.log("errore in addAuthor - isCreator? ")
-            throw new HttpError('You are not the creator of the exposition. ',401)
+            throw new HttpError('You are not the creator of the exposition ',401)
         }
 
-        const authorToRemove = await FullUser.findOne({basicCorrespondent: authorToRemoveId})
+        /*const authorToRemove = await FullUser.findOne({basicCorrespondent: authorToRemoveId})
         if(!authorToRemove) throw new HttpError ('User that you want to remove does not have a full account. ',400) //consistenza
+        */
 
         if(!expo.authors.find(a=>a.userId===authorToAdd._id)){
-            throw new HttpError("User is not an Author in this exposition. ",404)
+            throw new HttpError("User is not an Author in this exposition.",404)
         }
         expo.authors=expo.authors.filter(a=> a.userId!==authorToRemove._id)
         await expo.save();
@@ -201,7 +201,7 @@ async function removeAuthor(req,res,next){
             })
         }
 
-        res.status(200).send("Author removed from the exposition. Notification sent. ")
+        res.status(200).send("Author removed from the exposition. Notification sent.")
     }catch(err){
         next(err)
     }
@@ -211,7 +211,7 @@ async function removeAuthor(req,res,next){
 async function connectToPortal(req,res,next){
     const user = req.full;
     const expo = req.expo;
-    const portalId = req.params.portalId
+    const portalId = req.params.portal
     try{
         const isCreator = expo.authors.find(a=>a.role==="creator")
         if(!isCreator.userId.equals(user._id)){
@@ -219,7 +219,7 @@ async function connectToPortal(req,res,next){
             throw new HttpError('You are not the creator of the exposition.',401)
         }
         if(expo.portal){
-            throw new HttpError("Expo is already connected to a Portal. ")
+            throw new HttpError("Expo is already connected to a Portal.")
         }
 
         const portal = await Portal.findById(portalId)
@@ -229,7 +229,7 @@ async function connectToPortal(req,res,next){
         const isAdmin=portal.admins.includes(user.basicCorrespondent)
 
         if(!(isMember||isAdmin)){
-            throw new HttpError("User is not a member/admin of the portal. You can't forward the request. ",403)
+            throw new HttpError("User is not a member/admin of the portal. You can't forward the request.",403)
         }
 
 
@@ -240,7 +240,7 @@ async function connectToPortal(req,res,next){
             extra: expo._id
         })
 
-        if(requestExists) throw new HttpError('You already made the request. ',409)
+        if(requestExists) throw new HttpError('You already made the request.',409)
 
         const expoCreator = await BasicUser.findById(user.basicCorrespondent)
 
@@ -258,22 +258,23 @@ async function connectToPortal(req,res,next){
     }
 }
 
+//TODO: inserire i controlli che l'esposizione non sia nè pubblicata nè in fase di reviewing
 async function editExposition(req,res,next){
     const {HTMLString}=req.body;
     const userId=req.user.id
     const expo=req.expo
     try{
         if(!expo.authors.find(a=>String(a.userId)===userId)){
-            throw new HttpError("Can't save the changes unless you are an author. No changes saved. ",403)
+            throw new HttpError("Can't save the changes unless you are an author. No changes saved.",403)
         }
         if(!HTMLString){
             throw new HttpError("Html string received was null. No changes saved.",400)
         }
         expo.HTMLString=HTMLString  
         await expo.save();
-        res.status(201).send("Exposition was successfully edited and saved. ")
+        res.status(201).send("Exposition was successfully edited and saved.")
     }catch(err){
         next(err)
     }
 }
-module.exports = {createExposition,setExpoPublic,editExpoMetadata,addAuthor,removeAuthor}
+module.exports = {createExposition,setExpoPublic,editExpoMetadata,addAuthor,removeAuthor,connectToPortal,editExposition}
