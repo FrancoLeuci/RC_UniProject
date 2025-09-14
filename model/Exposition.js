@@ -26,6 +26,7 @@ const ExpositionSchema=new mongoose.Schema({
 
 
     authors:[{
+        _id:false,
         role:{
             type:String,
             enum:['creator','co-author'],

@@ -112,7 +112,6 @@ async function addToPortal(req,res,next){
     }
 }
 
-//TODO: non è stato inserito il codice che elimini dalla lista dei reviewer del portale il reviewer da eliminare
 async function removeFromPortal(req,res,next){
     const portal=req.portal;
     const memberToRemoveId=req.params.id;
@@ -121,44 +120,82 @@ async function removeFromPortal(req,res,next){
         const userToRemove = await BasicUser.findById(memberToRemoveId)
         if(!userToRemove) throw new HttpError('User not found',404)
 
-        if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)){
-            portal.members.splice(portal.members.indexOf(memberToRemoveId),1);
-            await portal.save();
-            userToRemove.portals.splice(userToRemove.portals.indexOf(portal._id),1);
+        if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)) {
+            portal.members.splice(portal.members.indexOf(memberToRemoveId), 1);
+            userToRemove.portals.splice(userToRemove.portals.indexOf(portal._id), 1);
             await userToRemove.save()
-        } else {
-            throw new HttpError("User is not a member of the Portal",400)
-            //return res.status(400).json({message: "L'utente non è membro del portale"})
-        }
+            if (portal.reviewers.find(reviewerId => String(reviewerId) === memberToRemoveId)) {
+                portal.reviewers.splice(portal.reviewers.indexOf(memberToRemoveId), 1);
+                const expoReviewing = await Exposition.find({reviewer: {flag: true, user: memberToRemoveId}})
+                if (expoReviewing) {
+                    await Promise.all(expoReviewing.map(async expo => {
+                        expo.reviewer = {flag: false, user: null};
+                        await expo.save();
+                        //la notifica arriva all'esposizione (a tutti gli autori+creatore)
+                        const notification = await Notification.findOne({receiver: expo._id})
+                        if (notification) {
+                            notification.backlog.push(`The user ${userToRemove.realName} was recently removed from the Portal ${portal.name} and from his reviewing role for your Exposition. Make a new pubblication request to get a new reviewer. `)
+                            await notification.save() //sta qui
+                        } else {
+                            await Notification.create({
+                                receiver: memberToRemoveId,
+                                backlog: `The user ${userToRemove.realName} was recently removed from the Portal ${portal.name} and from his reviewing role for your Exposition. Make a new pubblication request to get a new reviewer.`
+                            })
+                        }
+                    }))
+                }
+                await portal.save();
+            } else {
+                throw new HttpError("User is not a member of the Portal", 400)
+                //return res.status(400).json({message: "L'utente non è membro del portale"})
+            }
 
-        //TODO: sistemare con l'eliminazione anche dai gruppi e non solo dal FullUser
-        const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId})
-        if(userToRemoveFull) {
-            userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.portal!==portal._id)
-            await userToRemoveFull.save()
-        }
 
-        //creo notifica che avvisa l'utente di essere stato rimosso dal portale
-        let notification = await Notification.findOne({receiver: memberToRemoveId})
-        if(notification){
-            notification.backlog.push(`You were removed from the portal ${portal.name}`)
-            await notification.save()
-        } else {
-            await Notification.create({
-                receiver: memberToRemoveId,
-                backlog: `You were removed from the portal ${portal.name} and from all its groups.`
-            })
-        }
+            const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId}).populate("groups")
 
-        notification = await Notification.findOne({receiver: portal._id})
-        if(notification){
-            notification.backlog.push(`${userToRemove.realName} was removed from the portal`)
-            await notification.save()
+
+            if (userToRemoveFull) {
+                userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.populate !== portal._id)
+                await userToRemoveFull.save()
+
+                const portalGroups = await Group.find({portal: portal._id})
+                if (portalGroups) {
+                    await Promise.all(portalGroups.map(async pg => {
+                        if(pg.members.find(userToRemoveFull._id)){
+                            pg.members.splice(pg.members.indexOf(userToRemoveFull._id), 1);
+                            await pg.save();
+                        }else if(pg.admins.find(userToRemoveFull._id)) {
+                            pg.admins.splice(pg.members.indexOf(userToRemoveFull._id), 1);
+                            await pg.save();
+                        }
+                    }))
+                }
+            }
+
+            //creo notifica che avvisa l'utente di essere stato rimosso dal portale
+            let notification = await Notification.findOne({receiver: memberToRemoveId})
+            if(notification){
+                notification.backlog.push(`You were removed from the portal ${portal.name}`)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: memberToRemoveId,
+                    backlog: `You were removed from the portal ${portal.name} and from all its groups.`
+                })
+            }
+
+            notification = await Notification.findOne({receiver: portal._id})
+            if(notification){
+                notification.backlog.push(`${userToRemove.realName} was removed from the portal`)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: portal._id,
+                    backlog: `${userToRemove.realName} was removed from the portal`
+                })
+            }
         } else {
-            await Notification.create({
-                receiver: portal._id,
-                backlog: `${userToRemove.realName} was removed from the portal`
-            })
+            throw new HttpError('User is not a member of the portal.',400)
         }
 
         res.status(200).json({ok:true,message:"User deleted from the members list."})

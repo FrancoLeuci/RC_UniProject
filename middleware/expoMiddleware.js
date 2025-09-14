@@ -3,11 +3,12 @@ const Exposition=require("../model/Exposition")
 
 //TODO: non funziona bene il middleware
 async function expoCheck(req,res,next) {
-    const userId=req.user.id
+    const userId = req.user.id
     const expoId = req.params.expoId;
     try {
         const expo = await Exposition.findById(expoId);
         const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
+
         if (!expo) {
             throw new Error("expo")
         } else if (!fullAccount) {
@@ -28,7 +29,6 @@ async function expoCheck(req,res,next) {
                 break;
             default:
                 res.status(500).send("Internal Server Error.");
-
         }
         console.error("Middleware ExpositionMIddleware - ERRORE: ",err)
     }
