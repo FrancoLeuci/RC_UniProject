@@ -2,6 +2,8 @@ const Exposition = require('../model/Exposition')
 const BasicUser=require('../model/BasicUser')
 const FullUser = require('../model/FullUser')
 const Portal = require('../model/Portal')
+const Notification = require('../model/Notification')
+const mongoose=require("mongoose")
 
 const {HttpError} = require('../middleware/errorMiddleware')
 //prendere la lista di revisioni del singolo reviewer
@@ -12,25 +14,29 @@ const {HttpError} = require('../middleware/errorMiddleware')
 //esiste una pagina a parte dove se l'utente è un reviewer di uno o più portali vede tutte le richieste in essa
 async function expoToReviewList(req,res,next){
     const reviewer=req.user.id;
+
     try{
         const reviewerBasicAccount=await BasicUser.findById(reviewer).populate("portals")
-        if(reviewerBasicAccount){
+        if(!reviewerBasicAccount){
             throw new HttpError("No user found. ",404)
         }
+
         if(reviewerBasicAccount.portals.length===0){
             throw new HttpError("User is not linked to any portal. ",404)
         }
-        
-        const portalsReviewer = reviewerBasicAccount.portals.reviewers.filter(portal => portal.reviewers.includes(reviewer))
-        if(!portalsReviewer){ //se l'utente non appare in nessuna lista di reviewers non è un reviewer
+
+        const portalsReviewer = reviewerBasicAccount.portals.filter(p=>{
+            return p.reviewers.includes(reviewer)
+        })
+
+        if(portalsReviewer.length===0){ //se l'utente non appare in nessuna lista di reviewers non è un reviewer
             throw new HttpError("User is not a Reviewer. ",403)
-            
         }
         
-        const expositions = await Promise.all(portalsReviewer.map(async p=>await Exposition.find({portal:p._id,reviewer:{flag:true,user:reviewer}})))
-    
-    
-            
+        const expositions = await Promise.all(portalsReviewer.map(async p=>{
+            const a=await Exposition.find({portal:p._id,reviewer:{flag:true,user:reviewerBasicAccount._id}})
+            return a
+        }))
 
         res.status(200).json({ok:true, expositions})
     }catch(err){
@@ -45,11 +51,13 @@ async function expoStatus(req, res, next){
         const expo = await Exposition.findById(expoId)
         if(!expo) throw new HttpError('Exposition not found',404)
 
-        if(!expo.reviewer.user.equals(reviewer)) throw new HttpError('You are not the reviewer.',401)
+        if(expo.published)throw new HttpError("Exposition already published. ",409)
 
-        const notificationReviewer = await Notification.findOne({receiver: reviewer})
+        if(String(expo.reviewer.user)!==reviewer) throw new HttpError('You are not the reviewer.',401)
+
+        const notificationReviewer = await Notification.findOne({receiver: new mongoose.Types.ObjectId(reviewer)})
         const creator = expo.authors.find(a => a.role==="creator")
-        const notificationCreator = await Notification.findOne({receiver: creator})
+        const notificationCreator = await Notification.findOne({receiver: creator.userId})
         if(action==='rejected'){
             expo.shareStatus = 'private' //lo stato cambia per permettere ai membri di editarlo
         } else if(action==='accepted'){
@@ -58,22 +66,22 @@ async function expoStatus(req, res, next){
             throw new HttpError('Action not valid',400)
         }
 
-        expo.reviewer = {flag: false, user:null}
+        expo.reviewer = {flag: false, user:null} //in ogni caso il reviewer "esce" dal ruolo nel contesto dell'esposizione
         await expo.save()
 
-        if(!notificationReviewer){
+        if(!notificationReviewer){ //notifica al reviewer che ha accettato/rigettato la richiesta
             await Notification.create({
                 receiver: reviewer,
                 backlog: `You ${action} the reviewing request of ${expo.title} exposition`,
             })
-        } else {
+        } else { 
             notificationReviewer.backlog.push(`You ${action} the reviewing request of ${expo.title} exposition`)
             await notificationReviewer.save()
         }
 
-        if(!notificationCreator){
+        if(!notificationCreator){ //notifica al creatore che la richiesta è stata accettata/rigettata
             await Notification.create({
-                receiver: creator,
+                receiver: creator.userId,
                 backlog: `The reviewing request of ${expo.title} exposition was ${action}`,
             })
         } else {
@@ -81,7 +89,7 @@ async function expoStatus(req, res, next){
             await notificationReviewer.save()
         }
 
-        res.status(200).send('Exposition reviewing made successfully')
+        res.status(200).send('Exposition reviewing made successfully. ') //log
     }catch(err){
         next(err)
     }

@@ -22,6 +22,7 @@
   "homepage": "https://github.com/FrancoLeuci/RC_UniProject#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
