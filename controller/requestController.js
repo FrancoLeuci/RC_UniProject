@@ -57,7 +57,8 @@ async function actionRequest(req, res, next) {
         }
 
         //gestione delle collaborazioni delle esposizioni
-        if(request.type==='collaboration.addUse'){
+        if(request.type==='collaboration.addUser'){
+
             if(action==="accepted"){
                 const expo = await Exposition.findById(request.extra)
                 const receiverFull = await FullUser.findOne({basicCorrespondent: request.receiver})

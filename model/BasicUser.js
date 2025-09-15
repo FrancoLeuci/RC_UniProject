@@ -56,7 +56,7 @@ const basicUserSchema = new mongoose.Schema({
 
     portals: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Portal"
+        ref: Portal
     }],
 
     roles: [{

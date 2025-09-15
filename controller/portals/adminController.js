@@ -447,7 +447,9 @@ async function removeReviewer(req,res,next) {
 
 async function selectReviewer(req,res,next){
     const portal = req.portal
+    //id del reviewer da assegnare
     const {reviewerId} = req.body
+    //richiesta di publishing di una expo
     const requestId = req.params.reqId
     try{
         const request = await Request.findById(requestId)
@@ -464,7 +466,7 @@ async function selectReviewer(req,res,next){
         expo.shareStatus = 'reviewing'
         await expo.save()
 
-        await request.findByIdAndDelete(requestId)
+        await Request.findByIdAndDelete(requestId)
 
         res.status(200).send('Reviewer selected.')
     }catch(err){

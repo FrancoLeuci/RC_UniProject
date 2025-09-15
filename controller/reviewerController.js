@@ -14,17 +14,29 @@ async function expoToReviewList(req,res,next){
     const reviewer=req.user.id;
     try{
         const reviewerBasicAccount=await BasicUser.findById(reviewer).populate("portals")
-
+        if(reviewerBasicAccount){
+            throw new HttpError("No user found. ",404)
+        }
+        if(reviewerBasicAccount.portals.length===0){
+            throw new HttpError("User is not linked to any portal. ",404)
+        }
+        
         const portalsReviewer = reviewerBasicAccount.portals.reviewers.filter(portal => portal.reviewers.includes(reviewer))
-
-        const expositions = await Exposition.find({portal: portalsReviewer._id, reviewer: {flag:true,user: reviewer}})
+        if(!portalsReviewer){ //se l'utente non appare in nessuna lista di reviewers non è un reviewer
+            throw new HttpError("User is not a Reviewer. ",403)
+            
+        }
+        
+        const expositions = await Promise.all(portalsReviewer.map(async p=>await Exposition.find({portal:p._id,reviewer:{flag:true,user:reviewer}})))
+    
+    
+            
 
         res.status(200).json({ok:true, expositions})
     }catch(err){
         next(err)
     }
 }
-
 async function expoStatus(req, res, next){
     const reviewer = req.user.id
     const expoId = req.params.expoId

@@ -58,10 +58,10 @@ const PortalSchema = new mongoose.Schema(
             ref: Image
         },
 
-        expositionsLinked:{
+        expositionsLinked:[{
             type:mongoose.Schema.Types.ObjectId,
             ref:Exposition
-        }
+        }]
     }, { timestamps: true }
 )
 

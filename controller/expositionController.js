@@ -68,7 +68,7 @@ async function setExpoPublic(req,res,next){
                     sender: fullAccount._id,
                     receiver: expo.portal,
                     type: "portal.requestToLinkExposition",
-                    content: `${expoCreator.realName} want to publish the exposition ${expo.title}.`,
+                    content: `${creator.realName} want to publish the exposition ${expo.title}.`,
                     extra: expo._id
                 })
             }else{
@@ -77,11 +77,13 @@ async function setExpoPublic(req,res,next){
 
             expo.status="reviewing"
             await expo.save()
+
+            return res.status(200).json({ok: true, message:'Request sent successfully.'})
         }
         expo.published=true;
         await expo.save()
 
-        res.status(200).json({ok: true, message:'Exposition published successfully.'})
+        res.status(200).json({ok: true, message:'Exposition publishing successfully.'})
     }catch(err){
         next(err)
     }
@@ -95,8 +97,11 @@ async function editExpoMetadata(req,res,next){
     try{
         if(expo.published){throw new HttpError("Cannot modify this exposition's metadata since it has been published already.",403)}
         if(expo.shareStatus==="reviewing"){throw new HttpError("Cannot modify this exposition's metadata since it is in status of reviewing.",403)}
+        console.log("USER._ID: ",user._id)
 
-        const isAuthor=expo.authors.find(a=>a.userId===user._id)
+        const isAuthor=expo.authors.find(a=>a.userId.equals(user._id))
+
+        console.log("ISAUTHOR: ", isAuthor)
         if(!isAuthor){
             throw new HttpError("You can't edit this exposition's metadata.",403)
         }
@@ -125,24 +130,27 @@ async function editExpoMetadata(req,res,next){
 async function addAuthor(req,res,next){
     const user = req.full;
     const expo = req.expo;
+    //id di un full
     const authorToAddId = req.params.id
     try{
-        if(expo.published||expo.shareStatus==="reviewing")throw new HttpError('Exposition already published or undergoing review process, can\'t remove an Author.',400) const isCreator = expo.authors.find(a=>a.role==="creator")
+        if(expo.published||expo.shareStatus==="reviewing")throw new HttpError('Exposition already published or undergoing review process, can\'t remove an Author.',400)
+
+        const isCreator = expo.authors.find(a=>a.role==="creator")
         if(!isCreator.userId.equals(user._id)){
             console.log("errore in addAuthor - isCreator? ")
             throw new HttpError('You are not the creator of the exposition.',401)
         }
 
-        const authorToAdd = await FullUser.findOne({basicCorrespondent: authorToAddId})
+        const authorToAdd = await FullUser.findById(authorToAddId)
         if(!authorToAdd) throw new HttpError ('User that you want to add does not have a full account',400)
 
-        if(expo.authors.find(a=>a.userId===authorToAdd._id)){
+        if(expo.authors.find(a=>String(a.userId)===authorToAddId)){
             throw new HttpError("User already is an Author in this exposition.",409)
         }
 
         const requestExists = await Request.findOne({
             sender: user.basicCorrespondent,
-            receiver: authorToAddId,
+            receiver: authorToAdd.basicCorrespondent,
             type: "collaboration.addUser",
             extra: expo._id
         })
@@ -150,11 +158,12 @@ async function addAuthor(req,res,next){
         if(requestExists) throw new HttpError('You already made the request',409)
 
         const expoCreator = await BasicUser.findById(user.basicCorrespondent)
-        const authorToAddBasic = await BasicUser.findById(authorToAddId)
+        //author To Add Id è del full. Mi serve il basicCorrespondent
+        const authorToAddBasic = await BasicUser.findById(authorToAdd.basicCorrespondent)
 
         await Request.create({
             sender: user.basicCorrespondent,
-            receiver: authorToAddId,
+            receiver: authorToAdd.basicCorrespondent,
             type: "collaboration.addUser",
             content: `${expoCreator.realName} invited ${authorToAddBasic.realName} to be an Author.`,
             extra: expo._id
@@ -232,7 +241,7 @@ async function connectToPortal(req,res,next){
             throw new HttpError('You are not the creator of the exposition.',401)
         }
         if(expo.portal){
-            throw new HttpError("Expo is already connected to a Portal.")
+            throw new HttpError("Expo is already connected to a Portal.",409)
         }
 
         const portal = await Portal.findById(portalId)
