@@ -365,7 +365,6 @@ async function requestToBecomeGroupMember(req, res, next){
 
         const portal = await Portal.findById(group.portal)
 
-        //TODO
         const existingRequest = await Request.findOne({
             sender: userId,
             receiver: group._id,
@@ -412,4 +411,42 @@ async function findUserByName(req,res,next){
     }
 }
 
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName}
+async function deleteSelfRequest(req,res,next){
+    //TODO: ricordare di porre il controllo sul numero di admins del portale, di cui se è il singolo admin avvisare
+    const userId = req.user.id
+    const superAdminList=await BasicUser.find({role:"super-admin"})
+
+    try{
+        //capire lo status code
+        if(superAdminList.length===0)throw new HttpError("Can't request to delete your account. There are no superAdmins available at the moment. Contant the website owner. ",418)
+
+        const user=await BasicUser.findById(userId).populate("portals")
+        user.portals.map(p=>{
+            if(p.admins.includes(user._id)&&p.admins.length===1)throw new HttpError(`Can't process this request, you are the only admin in ${p.name}. Add another admin to the list and then request again`)
+        })
+
+        const existingRequest = await Request.find({
+            sender: userId,
+            type: 'user.selfDeleteRequest',
+        })
+
+        if (existingRequest) {
+            throw new HttpError("You have already requested access to this group",409)
+        }
+
+        await Promise.all(superAdmin.map(async superAdmin=>
+            await Request.create({
+                sender: userId,
+                receiver: superAdmin._id,
+                type: 'user.selfDeleteRequest',
+                content: `${user.realName} has requested to delete his account permanently from the website.`,
+            })
+        ))
+
+        res.status(201).send('Request sent successfully')
+    }catch(err){
+        next(err)
+    }
+
+}
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName,deleteSelfRequest}

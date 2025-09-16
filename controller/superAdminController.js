@@ -4,15 +4,61 @@ const Group = require('../model/Group')
 const Exposition = require('../model/Exposition')
 const Request = require('../model/Request')
 const Notification = require('../model/Notification')
+const Media=require("../model/Media")
+const Set = require('../model/Set')
 
 const {HttpError} = require('../middleware/errorMiddleware')
+const {google} = require("googleapis");
+const nodemailer = require("nodemailer");
 
-//creazione del portale (con richiesta) e inserimento di un admin
-//eliminazione di un account (con richiesta) - rimozione delle esposizioni, dei media, della sua presenza in eventuali portali/gruppi/collaborazioni
-//gestione delle problematiche dovute a copyright di media o di esposizioni
 
-//TODO: Chidere come poter gestire la creazione del primo super-admin del sito
+//TODO: gestione delle problematiche dovute a copyright di media o di esposizioni (chiedere se ci deve essere una richiesta previa)
 
+async function emailSender (email){
+    try{
+        // metodo della libreria googleapis per creare un client oAuth2 autorizzato
+        const oAuth2Client = new google.auth.OAuth2(
+            process.env.CLIENT_ID,
+            process.env.CLIENT_S,
+            process.env.REDIRECT_URI
+        );
+
+        // metodo per impostare le credenziale di autorizzazione
+        oAuth2Client.setCredentials({
+            refresh_token: process.env.OAUTH_REFRESH_TOKEN
+        })
+
+        const accessToken = await oAuth2Client.getAccessToken();
+
+        // metodo per creare un oggetto Transport per l'invio dell'email
+        const emailTransporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                type: 'OAuth2',
+                user: process.env.EMAIL_USER,
+                clientId: process.env.CLIENT_ID,
+                clientSecret: process.env.CLIENT_S,
+                refreshToken: process.env.OAUTH_REFRESH_TOKEN,
+                accessToken: accessToken
+            },
+        })
+
+            const mailOptions = {
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Poliba account',
+                html: `Your account is delete as you required`,
+            }
+
+            return await emailTransporter.sendMail(mailOptions)
+    }catch(err){
+        console.error("Errore invio email:", err);
+        throw new HttpError("Failed to send email: " + err.message, 500);
+    }
+}
+
+
+//TODO: Chidere come poter gestire la creazione del primo super-admin del sito - come richiedere al sito la creazione del portale
 async function addSuperAdmin(req,res,next){
     const requestUserId=req.user.id
     const userToPromoteId = req.params.id
@@ -40,7 +86,7 @@ async function portalDeletionResponse(req,res,next){
     const {action} = req.body
     try{
         const isSuperAdmin=await BasicUser.findOne({_id:sAdminId,role:"super-admin"})
-        if(!isSuperAdmin) throw new HttpError("Forbidden. You are not a super admin. ");
+        if(!isSuperAdmin) throw new HttpError("Forbidden. You are not a super admin. ",403);
 
         const request = await Request.findById(requestId)
         if(!request) throw new HttpError('Request not found',404)
@@ -49,8 +95,8 @@ async function portalDeletionResponse(req,res,next){
 
         if(action === 'accepted'){
             //togliere dalle expo il portale
-            const portal=Portal.findById(request.extra)
-            const expos=await Promise.all(portal.expositionsLinked.map(async e=>{
+            const portal=await Portal.findById(request.extra)
+            await Promise.all(portal.expositionsLinked.map(async e=>{
                 const expo=await Exposition.findById(e)
                 expo.portal=null;
 
@@ -119,7 +165,16 @@ async function portalDeletionResponse(req,res,next){
 
             //cancellare tutti i gruppi del portale e scollegare
             await Group.deleteMany({portal: request.extra})
+
+            //cancellazione delle richieste e delle notifiche
+            await Request.deleteMany({receiver: portal._id})
+            await Request.deleteMany({sender: portal._id})
+            await Request.deleteMany({extra: portal._id})
+            await Notification.deleteMany({receiver: portal._id})
+
+            //cancellazione portale
             await Portal.findByIdAndDelete(portal._id)
+
         } else if(action === 'rejected'){
             //invia la notifica solo all'admin del portale che ha fatto la richiesta
             const notification = await Notification.findOne({receiver: request.sender})
@@ -145,6 +200,7 @@ async function portalDeletionResponse(req,res,next){
     }
 }
 
+//ci serve sapere come arriva la richiesta di creazione
 async function createPortalRequest(req,res,next){
     const sAdminId=req.user.id
     const {name, emailFirstAdmin}=req.body
@@ -182,4 +238,191 @@ async function createPortalRequest(req,res,next){
     }
 }
 
-module.exports = {addSuperAdmin}
+async function userDeletionResponse(req,res,next){
+    const sAdminId=req.user.id
+    const requestId=req.params.rqId
+    const {action}=req.body
+
+    try{
+        const isSuperAdmin=await BasicUser.findOne({_id: sAdminId, role: 'super-admin'})
+        if(!isSuperAdmin) throw new HttpError("You are not a super admin.",403)
+
+        const request = await Request.findById(requestId)
+        if(!request) throw new HttpError('Request not found',404)
+        if(request.type!=="user.selfDeleteRequest") throw new HttpError('Wrong request type.',400)
+
+        if(action==="accepted"){
+            const userToDelete = await BasicUser.findById(request.sender).populate({path:"portals", populate:{path:"expositions",}}) //nested populate
+            //togliere dai portali
+            await Promise.all(userToDelete.portals.map(async p =>{
+                let index = p.admins.indexOf(userToDelete._id)
+                if(index!==(-1)){
+                    p.admins.splice(index,1)
+                } else {
+                    index = p.members.indexOf(userToDelete._id)
+                    p.members.splice(index,1)
+                }
+                index = p.reviewers.indexOf(userToDelete._id)
+                //rimozione dalle esposizioni in reviewing
+                if(index!==(-1)) {
+                    p.reviewers.splice(index,1)
+                    await Promise.all(p.expositions.map(async expo => {
+                        if(expo.reviewer.user.equals(usertoDelete._id)){
+                            expo.reviewer = {flag: false, user: null}
+                            expo.sharedStatus='private';
+                            await expo.save()
+                        }
+                    }))
+                }
+                await p.save()
+
+                //avvisa il portale che l'utente non fa più parte di esso
+                const notification = await Notification.findOne({receiver: p._id})
+                if(notification){
+                    notification.backlog.push(`${userToDelete.realName} and its expositions are removed from the portal`)
+                    await notification.save()
+                } else {
+                    await Notification.create({
+                        receiver:  p._id,
+                        backlog: `${userToDelete.realName} and its expositions are removed from the portal`
+                    })
+                }
+            }))
+
+            const userToDeleteFull = await FullUser.findOne({basicCorrespondent: userToDelete._id}).populate("groups").populate({path:"expositions",populate:[{path:"portal"},{path:"authors.userId"}]})
+            if(userToDeleteFull){
+                //togliere dai gruppi
+                await Promise.all(userToDeleteFull.groups.map(async g => {
+                    let index = g.admins.indexOf(userToDelete._id)
+                    if(index!==(-1)){
+                        g.admins.splice(index,1)
+                    } else {
+                        index = g.members.indexOf(userToDelete._id)
+                        g.members.splice(index,1)
+                    }
+                    await g.save()
+                    if(g.admins.length===0){
+                        const notification = await Notification.findOne({receiver: g.portal})
+                        if(notification){
+                            notification.backlog.push(`${g.title} has now no admins. Make sure to promote a member. `)
+                            await notification.save()
+                        } else {
+                            await Notification.create({
+                                receiver:  g.portal,
+                                backlog: `${g.title} has now no admins. Make sure to promote a member.`
+                            })
+                        }
+                    }
+
+                    const notification = await Notification.findOne({receiver: g._id})
+                    if(notification){
+                        notification.backlog.push(`${userToDelete.realName} has been removed from the group.`)
+                        await notification.save()
+                    } else {
+                        await Notification.create({
+                            receiver:  g._id,
+                            backlog: `${userToDelete.realName} has been removed from the group.`
+                        })
+                    }
+                }))
+
+                //eliminazione delle esposizioni se è un creatore - rimozione dalle esposizioni se è un co-autore
+                await Promise.all(userToDeleteFull.expositions.map(async expo => {
+                    //verificare userId===userToDeleteFull
+                    if(expo.authors.find(a => a==={role:"creator",userId:userToDeleteFull})){
+                        //eliminazione dell'expo dal portale
+                        if(expo.portal){
+                            let index = expo.portal.expositionsLinked.indexOf(expo._id)
+                            expo.portal.expositionsLinked.splice(index,1)
+                            await expo.portal.save()
+                        }
+
+                        //in caso serve eliminare anche dai gruppi
+
+                        //eliminazione dell'esposizione dagli array expositions negli account fullUser di ogni co autore che ne faceva parte
+                        await Promise.all(expo.authors.map(async a => {
+                            a.userId.expositions.splice(a.userId.expositions.indexOf(expo._id),1)
+                            await a.userId.save();
+                            //invio delle notifiche ad ogni co-autore dell'esposizione
+                            const notification = await Notification.findOne({receiver: a.userId.basicCorrespondent})
+                            if(notification){
+                                notification.backlog.push(`${expo.title} has been eliminated since its creator's account has been eliminated upon request. `)
+                                await notification.save()
+                            } else {
+                                await Notification.create({
+                                    receiver: a.userId.basicCorrespondent,
+                                    backlog: `${expo.title} has been eliminated since its creator's account has been eliminated upon request. `
+                                })
+                            }
+                        }))
+
+                        //eliminazione dal db dell'esposizione
+                        await Exposition.findByIdAndDelete(expo._id);
+                    } else {
+                        let index = expo.authors.indexOf({role:'co-author', userId:userToDeleteFull._id})
+                        expo.authors.splice(index,1)
+                        await expo.save()
+
+                        const creator = expo.authors.find(a => a.role==="creator")
+                        const notification = await Notification.findOne({receiver: creator.userId})
+                        if(notification){
+                            notification.backlog.push(`${userToDelete.realName} is removed from the exposition ${expo.title}`)
+                            await notification.save()
+                        } else {
+                            await Notification.create({
+                                receiver:  creator.userId,
+                                backlog: `${userToDelete.realName} is removed from the exposition ${expo.title}`
+                            })
+                        }
+                    }
+                }))
+                //eliminazione finale fullUser
+                await FullUser.findOneAndDelete({basicCorrespondent:userToDelete._id})
+            }
+
+            //elimazione dei propri media
+            await Media.deleteMany({uploadedBy: userToDelete._id})
+            await Set.deleteMany({creator: userToDelete._id})
+            const setsSharedWithUserToDelete = await Set.find({otherUsersPermissions: {user: userToDelete._id}}).populate("mediaList")
+            await Promise.all(setsSharedWithUserToDelete.map(async set => {
+                set.mediaList = set.mediaList.filter(media => !media.uploadedBy.equals(userToDelete._id))
+                const index = set.otherUsersPermissions.indexOf({user: userToDelete._id})
+                set.otherUsersPermissions.splice(index,1)
+                await set.save()
+            }))
+
+            //eliminazione delle richieste e delle notifiche
+            await Request.deleteMany({receiver: userToDelete._id})
+            await Request.deleteMany({sender: userToDelete._id})
+            await Notification.deleteMany({receiver: userToDelete._id})
+
+            //invio della email
+            await emailSender(userToDelete.email)
+
+            await BasicUser.findByIdAndDelete(userToDelete._id)
+
+        }else if(action==="rejected"){
+            const notification = await Notification.findOne({receiver: request.sender})
+            if(notification){
+                notification.backlog.push(`Super-admin has ${action} the request: ${request.content}`)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: request.sender,
+                    backlog: `Super-admin has ${action} the request: ${request.content}`
+                })
+            }
+        }else{
+            throw new HttpError('Action not valid',400)
+        }
+
+        //le elimino tutte
+        await Request.deleteMany({type:"user.selfDeleteRequest", sender: request.sender})
+    }catch(err){
+        next(err)
+    }
+}
+
+
+
+module.exports = {addSuperAdmin, portalDeletionResponse, createPortalRequest, userDeletionResponse}

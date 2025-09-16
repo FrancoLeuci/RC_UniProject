@@ -22,7 +22,8 @@ const AbstractMediaSchema = new mongoose.Schema({
     uploadedBy:{
         type:mongoose.Schema.Types.ObjectId,
         ref:"BasicUser",
-        required:true,},
+        required:true,
+    },
 
     description:String,
 

@@ -154,6 +154,11 @@ async function actionRequest(req, res, next) {
             }
         }
 
+        //per le tipologie che non sono gestite da questa funzione
+        if(request.type===("collaboration.addUser"||"collaboration.requestToPortal"||"portal.requestToLinkExposition"||"portal.delete"||"user.selfDeleteRequest")&&action!=='canceled'){
+            throw new HttpError('This function does not accept/reject this type of request',409)
+        }
+
         //elimino la richiesta dal DB
         await Request.findByIdAndDelete(request._id)
 

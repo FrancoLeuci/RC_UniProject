@@ -38,12 +38,6 @@ const setSchema=new mongoose.Schema({
         }
     }],
 
-    portalsSharedWith:[{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:portals,
-        //ponte sullo stretto di messina
-    }],
-
     mediaList:[{
         type:mongoose.Schema.Types.ObjectId,
         ref:Media

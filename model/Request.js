@@ -18,6 +18,8 @@ const requestSchema = new mongoose.Schema({
             // group
             "group.addMember", //svolta dal gruppo verso un utente
             "group.requestToAccess", //svolta dall'utente verso il gruppo
+            //users
+            "user.selfDeleteRequest"
         ],
     },
 
