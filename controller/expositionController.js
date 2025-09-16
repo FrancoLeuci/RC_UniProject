@@ -9,11 +9,9 @@ const {HttpError} = require("../middleware/errorMiddleware")
 
 async function createExposition(req,res,next){
     const userId = req.user.id;
-    console.log("user id da create exposition: ",userId)
     //servono nella richiesta nel body (minimo indisp)
     const {title,abstract,copyright,licence}=req.body;
-
-
+    
     try{
         const isFull = await FullUser.findOne({basicCorrespondent: userId});
         if(!isFull){
@@ -97,11 +95,9 @@ async function editExpoMetadata(req,res,next){
     try{
         if(expo.published){throw new HttpError("Cannot modify this exposition's metadata since it has been published already.",403)}
         if(expo.shareStatus==="reviewing"){throw new HttpError("Cannot modify this exposition's metadata since it is in status of reviewing.",403)}
-        console.log("USER._ID: ",user._id)
 
         const isAuthor=expo.authors.find(a=>a.userId.equals(user._id))
 
-        console.log("ISAUTHOR: ", isAuthor)
         if(!isAuthor){
             throw new HttpError("You can't edit this exposition's metadata.",403)
         }
@@ -287,9 +283,8 @@ async function editExposition(req,res,next){
     const user=req.full
     const expo=req.expo
     try{
-        if(expo.published||expo.shareStatus==="reviewing")throw new HttpError("Can't edit the exposition when it has been published or it's undergoing a review. ",403)
+        if(expo.published||expo.shareStatus==="reviewing")throw new HttpError("Can't edit the exposition when it has been published or it's undergoing a review.",403)
 
-        console.log("UTENTE CHE TENTA DI MODIFICARE: ",expo.authors.find(a=>a.userId.equals(user._id)))
         if(!expo.authors.find(a=>a.userId.equals(user._id))){
             throw new HttpError("Can't save the changes unless you are an author. No changes saved.",403)
         }

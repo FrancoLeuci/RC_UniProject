@@ -61,10 +61,8 @@ const basicUserSchema = new mongoose.Schema({
 
     roles: [{
         type: String,
-        // admin e reviewer potrebbero essere ridondanti. Chiedere o controllare.
-        //enum: ["super-admin", "portal-admin", "reviewer", "limited-user"],
         enum: ["super-admin", "limited-user"],
-        default: 'limited-user' //usato sia per basic che full user per i token
+        default: 'limited-user'
     }],
 
     passwordForgottenKey: { type: String },

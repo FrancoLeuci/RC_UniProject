@@ -145,11 +145,7 @@ async function removeFromPortal(req,res,next){
                     }))
                 }
                 await portal.save();
-            } else {
-                throw new HttpError("User is not a member of the Portal", 400)
-                //return res.status(400).json({message: "L'utente non è membro del portale"})
             }
-
 
             const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId}).populate("groups")
 
@@ -463,6 +459,7 @@ async function selectReviewer(req,res,next){
             flag: true,
             user: reviewerId
         }
+
         expo.shareStatus = 'reviewing'
         await expo.save()
 
@@ -474,4 +471,37 @@ async function selectReviewer(req,res,next){
     }
 }
 
-module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer, removeReviewer, selectReviewer}
+async function requestToRemovePortal(req,res,next){
+    const adminId=req.user.id
+    const portal=req.portal
+    try{
+        const adminAccount=await BasicUser.findById(adminId)
+        const existingRequest = await Request.findOne({
+            type: 'portal.delete',
+            extra: portal._id
+        });
+
+        if (existingRequest) {
+            throw new HttpError(`Request already made`, 409);
+        }
+
+        const superAdmins=await BasicUser.find({role:"super-admin"})
+        superAdmins.map(async sA=>{
+            await Request.create({
+                type: 'portal.delete',
+                sender: adminId,
+                receiver: sA._id,
+                content: `${adminAccount.realName} requested to delete ${portal.name} portal.`,
+                extra: portal._id
+            })
+
+        })
+
+        res.status(201).send('Request sent successfully')
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
+    removeReviewer, selectReviewer, requestToRemovePortal}
