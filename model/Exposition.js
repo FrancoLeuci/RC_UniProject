@@ -10,7 +10,6 @@ const ExpositionSchema=new mongoose.Schema({
         required:true
     },
 
-
    published:{
         type:Boolean,
        required:true,

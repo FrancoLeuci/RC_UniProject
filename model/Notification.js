@@ -6,7 +6,7 @@ const notificationSchema = new mongoose.Schema({
     receiver: { type: mongoose.Schema.Types.ObjectId},
 
     backlog: [{ type: String }], // per le richiesta
-    feed: [{type: String}], // per i follow
+    feed: [{type: String}], // per i follow <- Gestire queste notifiche per le esposizioni
 });
 
 module.exports=mongoose.model("Notification", notificationSchema);

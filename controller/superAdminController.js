@@ -4,14 +4,15 @@ const Group = require('../model/Group')
 const Exposition = require('../model/Exposition')
 const Request = require('../model/Request')
 const Notification = require('../model/Notification')
-const Media=require("../model/Media")
+const {Media}=require("../model/Media")
 const Set = require('../model/Set')
+const FullUser=require("../model/FullUser")
 
 const {HttpError} = require('../middleware/errorMiddleware')
 const {google} = require("googleapis");
 const nodemailer = require("nodemailer");
 
-
+//funzione per promuovere basic-user a full-user
 //TODO: gestione delle problematiche dovute a copyright di media o di esposizioni (chiedere se ci deve essere una richiesta previa)
 
 async function emailSender (email){
@@ -117,7 +118,7 @@ async function portalDeletionResponse(req,res,next){
                 await adminAccount.save()
 
                 //eliminazione dal FullUser
-                const adminFull = await FullUser.findOne({basicCorrespondent: a}).populate(groups)
+                const adminFull = await FullUser.findOne({basicCorrespondent: a}).populate("groups")
                 if(adminFull) {
                     adminFull.groups = adminFull.groups.filter(g => g.portal.equals(portal._id))
                     await adminFull.save()
@@ -144,7 +145,7 @@ async function portalDeletionResponse(req,res,next){
                 await adminAccount.save()
 
                 //eliminazione dal FullUser
-                const adminFull = await FullUser.findOne({basicCorrespondent: m}).populate(groups)
+                const adminFull = await FullUser.findOne({basicCorrespondent: m}).populate("groups")
                 if(adminFull) {
                     adminFull.groups = adminFull.groups.filter(g => g.portal.equals(portal._id))
                     await adminFull.save()
@@ -211,7 +212,7 @@ async function createPortalRequest(req,res,next){
         if(!name) throw new HttpError("Name required.",400)
         if(!emailFirstAdmin)throw new HttpError("Email required.",404)
 
-        const firstAdmin=await BasicUser.find(emailFirstAdmin)
+        const firstAdmin=await BasicUser.findOne({email: emailFirstAdmin})
         if(!firstAdmin) throw new HttpError("User to promote not found.",404)
 
         const portal = await Portal.create({
@@ -244,7 +245,7 @@ async function userDeletionResponse(req,res,next){
     const {action}=req.body
 
     try{
-        const isSuperAdmin=await BasicUser.findOne({_id: sAdminId, role: 'super-admin'})
+        const isSuperAdmin=await BasicUser.findOne({_id: sAdminId, role: 'super-admin'}) //
         if(!isSuperAdmin) throw new HttpError("You are not a super admin.",403)
 
         const request = await Request.findById(requestId)
@@ -252,24 +253,25 @@ async function userDeletionResponse(req,res,next){
         if(request.type!=="user.selfDeleteRequest") throw new HttpError('Wrong request type.',400)
 
         if(action==="accepted"){
-            const userToDelete = await BasicUser.findById(request.sender).populate({path:"portals", populate:{path:"expositions",}}) //nested populate
+            //NuovoAccount10
+            const userToDelete = await BasicUser.findById(request.sender).populate({path:"portals", populate:{path:"expositionsLinked",}}) //nested populate
             //togliere dai portali
             await Promise.all(userToDelete.portals.map(async p =>{
                 let index = p.admins.indexOf(userToDelete._id)
                 if(index!==(-1)){
-                    p.admins.splice(index,1)
+                    p.admins.splice(index,1) //1 -> Portale 1
                 } else {
-                    index = p.members.indexOf(userToDelete._id)
+                    index = p.members.indexOf(userToDelete._id) //2 -> Portale 2
                     p.members.splice(index,1)
                 }
-                index = p.reviewers.indexOf(userToDelete._id)
+                index = p.reviewers.indexOf(userToDelete._id) //3 -> Portale 1 o 2
                 //rimozione dalle esposizioni in reviewing
-                if(index!==(-1)) {
+                if(index!==(-1)) { //creare un'esposizione dove user10 deve essere un reviwer
                     p.reviewers.splice(index,1)
-                    await Promise.all(p.expositions.map(async expo => {
-                        if(expo.reviewer.user.equals(usertoDelete._id)){
+                    await Promise.all(p.expositionsLinked.map(async expo => {
+                        if(expo.reviewer.user.equals(userToDelete._id)){
                             expo.reviewer = {flag: false, user: null}
-                            expo.sharedStatus='private';
+                            expo.shareStatus='private';
                             await expo.save()
                         }
                     }))
@@ -279,25 +281,26 @@ async function userDeletionResponse(req,res,next){
                 //avvisa il portale che l'utente non fa più parte di esso
                 const notification = await Notification.findOne({receiver: p._id})
                 if(notification){
-                    notification.backlog.push(`${userToDelete.realName} and its expositions are removed from the portal`)
+                    notification.backlog.push(`${userToDelete.realName} and its expositions were removed from the portal`)
                     await notification.save()
                 } else {
                     await Notification.create({
                         receiver:  p._id,
-                        backlog: `${userToDelete.realName} and its expositions are removed from the portal`
+                        backlog: `${userToDelete.realName} and its expositions were removed from the portal`
                     })
                 }
             }))
 
             const userToDeleteFull = await FullUser.findOne({basicCorrespondent: userToDelete._id}).populate("groups").populate({path:"expositions",populate:[{path:"portal"},{path:"authors.userId"}]})
+
             if(userToDeleteFull){
                 //togliere dai gruppi
                 await Promise.all(userToDeleteFull.groups.map(async g => {
-                    let index = g.admins.indexOf(userToDelete._id)
+                    let index = g.admins.indexOf(userToDelete._id) //gruppo 1 di cui è l'unico admin -> Portal 2
                     if(index!==(-1)){
                         g.admins.splice(index,1)
                     } else {
-                        index = g.members.indexOf(userToDelete._id)
+                        index = g.members.indexOf(userToDelete._id) //gruppo 2 di cui è membro -> Portal 2
                         g.members.splice(index,1)
                     }
                     await g.save()
@@ -327,9 +330,9 @@ async function userDeletionResponse(req,res,next){
                 }))
 
                 //eliminazione delle esposizioni se è un creatore - rimozione dalle esposizioni se è un co-autore
-                await Promise.all(userToDeleteFull.expositions.map(async expo => {
+                await Promise.all(userToDeleteFull.expositions.map(async expo => { //expo2 -> user10 è il creator e aggiungiamo almeno 1 co-autore e lo colleghiamo a Portal2
                     //verificare userId===userToDeleteFull
-                    if(expo.authors.find(a => a==={role:"creator",userId:userToDeleteFull})){
+                    if(expo.authors.find(a => a.role==="creator"&& (String(a.userId._id)===String(userToDeleteFull._id)))){
                         //eliminazione dell'expo dal portale
                         if(expo.portal){
                             let index = expo.portal.expositionsLinked.indexOf(expo._id)
@@ -337,7 +340,7 @@ async function userDeletionResponse(req,res,next){
                             await expo.portal.save()
                         }
 
-                        //in caso serve eliminare anche dai gruppi
+                        //in caso serve eliminare anche dai gruppi, non sappiamo che relazione ha il gruppo con l'expo
 
                         //eliminazione dell'esposizione dagli array expositions negli account fullUser di ogni co autore che ne faceva parte
                         await Promise.all(expo.authors.map(async a => {
@@ -359,19 +362,20 @@ async function userDeletionResponse(req,res,next){
                         //eliminazione dal db dell'esposizione
                         await Exposition.findByIdAndDelete(expo._id);
                     } else {
-                        let index = expo.authors.indexOf({role:'co-author', userId:userToDeleteFull._id})
+                        let index = expo.authors.findIndex((a) => a.role === "co-author" && a.userId._id.equals(userToDeleteFull._id));
                         expo.authors.splice(index,1)
                         await expo.save()
 
                         const creator = expo.authors.find(a => a.role==="creator")
-                        const notification = await Notification.findOne({receiver: creator.userId})
+                        const creatorF = await FullUser.findById(creator.userId)
+                        const notification = await Notification.findOne({receiver: creatorF.basicCorrespondent})
                         if(notification){
-                            notification.backlog.push(`${userToDelete.realName} is removed from the exposition ${expo.title}`)
+                            notification.backlog.push(`${userToDelete.realName} was removed from the exposition ${expo.title}`)
                             await notification.save()
                         } else {
                             await Notification.create({
-                                receiver:  creator.userId,
-                                backlog: `${userToDelete.realName} is removed from the exposition ${expo.title}`
+                                receiver:  creatorF.basicCorrespondent,
+                                backlog: `${userToDelete.realName} was removed from the exposition ${expo.title}`
                             })
                         }
                     }
@@ -381,8 +385,8 @@ async function userDeletionResponse(req,res,next){
             }
 
             //elimazione dei propri media
-            await Media.deleteMany({uploadedBy: userToDelete._id})
-            await Set.deleteMany({creator: userToDelete._id})
+            await Media.deleteMany({uploadedBy: userToDelete._id}) //importiamo almeno 3 media con account10
+            await Set.deleteMany({creator: userToDelete._id}) //creiamo 2 set -> uno di cui è creatore, l'altro a cui è stato condiviso a user10
             const setsSharedWithUserToDelete = await Set.find({otherUsersPermissions: {user: userToDelete._id}}).populate("mediaList")
             await Promise.all(setsSharedWithUserToDelete.map(async set => {
                 set.mediaList = set.mediaList.filter(media => !media.uploadedBy.equals(userToDelete._id))
@@ -402,27 +406,56 @@ async function userDeletionResponse(req,res,next){
             await BasicUser.findByIdAndDelete(userToDelete._id)
 
         }else if(action==="rejected"){
-            const notification = await Notification.findOne({receiver: request.sender})
-            if(notification){
-                notification.backlog.push(`Super-admin has ${action} the request: ${request.content}`)
-                await notification.save()
-            } else {
-                await Notification.create({
-                    receiver: request.sender,
-                    backlog: `Super-admin has ${action} the request: ${request.content}`
-                })
-            }
+
+
         }else{
             throw new HttpError('Action not valid',400)
         }
 
         //le elimino tutte
         await Request.deleteMany({type:"user.selfDeleteRequest", sender: request.sender})
+
+        res.send('Request accepted/rejected successfully')
     }catch(err){
         next(err)
     }
 }
 
+async function fullAccountResponse(req,res,next){
+    const sAdminId=req.user.id
+    const requestId=req.params.rqId
+    const {action}=req.body
 
+    try{
+        const isSuperAdmin=await BasicUser.findOne({_id: sAdminId, role: 'super-admin'}) //
+        if(!isSuperAdmin) throw new HttpError("You are not a super admin.",403)
 
-module.exports = {addSuperAdmin, portalDeletionResponse, createPortalRequest, userDeletionResponse}
+        const request = await Request.findById(requestId)
+        if(!request) throw new HttpError('Request not found',404)
+        if(request.type!=="user.fullAccountRequest") throw new HttpError('Wrong request type.',400)
+
+        if(action==="accepted"){
+            const newFull=await FullUser.create({
+                basicCorrespondent:request.sender,
+                alias:request.alias
+            })
+            console.log("FULLUSER NUOVO: ",newFull)
+        } else if(action!=="rejected"){throw new HttpError('Action not valid',400)}
+
+        const notification = await Notification.findOne({receiver: request.sender})
+        if(notification){
+            notification.backlog.push(`Super-admin has ${action} your account upgrade request.`)
+            await notification.save()
+        } else {
+            await Notification.create({
+                receiver: request.sender,
+                backlog: `Super-admin has ${action} your account upgrade request.`
+            })
+        }
+        res.send('Request accepted/rejected successfully')
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {addSuperAdmin, portalDeletionResponse, createPortalRequest, userDeletionResponse, fullAccountResponse}

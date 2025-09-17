@@ -19,12 +19,14 @@ const requestSchema = new mongoose.Schema({
             "group.addMember", //svolta dal gruppo verso un utente
             "group.requestToAccess", //svolta dall'utente verso il gruppo
             //users
-            "user.selfDeleteRequest"
+            "user.selfDeleteRequest",
+            "user.fullAccount.Request"
         ],
     },
 
     sender: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
     receiver: { type: mongoose.Schema.Types.ObjectId},
+    alias:{type:String},
 
     content: { type: String },
 

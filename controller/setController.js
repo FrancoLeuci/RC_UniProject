@@ -41,7 +41,7 @@ async function modifySet(req, res, next){
         const isCreator=String(setToModify.creator)===req.user.id;
         const isEditor=setToModify.otherUsersPermissions.includes({user:req.user.id,canEditSet:true})
         if(isCreator||isEditor){
-            const {setName,description,tags,keywords,visibility,otherUsersPermissions,portalsSharedWith}=req.body;
+            const {setName,description,tags,keywords,visibility,otherUsersPermissions}=req.body;
             if(!setName){
                 throw new HttpError("Name is required",400)
                 //return res.status(401).json({ok:false,message:"name is required"})
@@ -53,7 +53,6 @@ async function modifySet(req, res, next){
 
             if(isCreator){
                 setToModify.visibility=visibility;
-                setToModify.portalsSharedWith=portalsSharedWith.map(id=>new mongoose.Types.ObjectId(id))
                 //richiesta nel body deve essere un'array di oggetti {user,boolean}
                 setToModify.otherUsersPermissions=otherUsersPermissions;
             }

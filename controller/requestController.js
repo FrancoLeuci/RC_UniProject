@@ -72,6 +72,7 @@ async function actionRequest(req, res, next) {
                 await receiverFull.save()
             }
         } else if(request.type==='collaboration.requestToPortal'){
+            if(String(request.sender)===(userId)) throw new HttpError('You can\'t accept/reject your own request. ',409)
             const portal = await Portal.findById(request.receiver)
             //verifico che colui che compie l'azione sia un admin del portale
             if(!portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
@@ -174,10 +175,10 @@ async function viewRequests(req, res, next){
     try{
         const user = await BasicUser.findById(userId)
 
-        const sendedRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
+        const sentRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
         const receivedRequests = await Request.find({receiver: user._id}) //verranno mostrati i pulsanti di Accept e Reject per la richiesta
 
-        res.status(200).json({ok: true, send_requests: sendedRequests, rec_requests: receivedRequests})
+        res.status(200).json({ok: true, sent_requests: sentRequests, rec_requests: receivedRequests})
     }catch(err){
         next(err)
     }

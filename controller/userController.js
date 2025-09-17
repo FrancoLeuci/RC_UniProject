@@ -122,7 +122,7 @@ async function register(req, res, next){
             hide
         })
 
-        await emailSender(user.email, user._id)
+        //await emailSender(user.email, user._id)
 
         res.status(201).json({ok: true, message:"User successfully registered, check email"})
     } catch (err) {
@@ -198,7 +198,7 @@ async function login(req, res, next){
             await RefreshToken.create({
                 token:refreshToken,
                 userId:user._id,
-                userRoles:user.roles
+                userRoles:user.role
             });
         }
 
@@ -414,27 +414,27 @@ async function findUserByName(req,res,next){
 async function deleteSelfRequest(req,res,next){
     //TODO: ricordare di porre il controllo sul numero di admins del portale, di cui se è il singolo admin avvisare
     const userId = req.user.id
-    const superAdminList=await BasicUser.find({role:"super-admin"})
 
     try{
+        const superAdminList=await BasicUser.find({role:"super-admin"})
         //capire lo status code
         if(superAdminList.length===0)throw new HttpError("Can't request to delete your account. There are no superAdmins available at the moment. Contant the website owner. ",418)
 
         const user=await BasicUser.findById(userId).populate("portals")
         user.portals.map(p=>{
-            if(p.admins.includes(user._id)&&p.admins.length===1)throw new HttpError(`Can't process this request, you are the only admin in ${p.name}. Add another admin to the list and then request again`)
+            if(p.admins.includes(user._id)&&p.admins.length===1)throw new HttpError(`Can't process this request, you are the only admin in ${p.name}. Add another admin to the list and then request again.`,400)
         })
 
-        const existingRequest = await Request.find({
+        const existingRequest = await Request.findOne({
             sender: userId,
             type: 'user.selfDeleteRequest',
         })
 
         if (existingRequest) {
-            throw new HttpError("You have already requested access to this group",409)
+            throw new HttpError("Request already made. ",409)
         }
 
-        await Promise.all(superAdmin.map(async superAdmin=>
+        await Promise.all(superAdminList.map(async superAdmin=>
             await Request.create({
                 sender: userId,
                 receiver: superAdmin._id,
@@ -447,6 +447,50 @@ async function deleteSelfRequest(req,res,next){
     }catch(err){
         next(err)
     }
-
 }
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName,deleteSelfRequest}
+
+async function fullAccountRequest(req,res,next){
+    //TODO: chiedere se c'è bisogno di qualcosa per andare full. Una carta d'identità o simili.
+
+    const userId = req.user.id
+    const {newAlias}=req.body
+
+    try{
+        if(!newAlias)throw new HttpError("Alias not found. You must specify an alias to request a Full Account. ",400)
+        const sameAlias=await FullUser.findOne({alias:newAlias})
+        if(sameAlias)throw new HttpError("Alias already in use. Please choose another one. ",409)
+
+        const superAdminList=await BasicUser.find({role:"super-admin"})
+        if(superAdminList.length===0)throw new HttpError("Can't request to update your account. There are no superAdmins available at the moment. Contant the website owner. ",418)
+        const user=await BasicUser.findById(userId)
+        if(!user){
+            throw new HttpError("User not found.",404)
+        }
+
+        const existingRequest = await Request.findOne({
+            sender: userId,
+            type: 'user.fullAccountRequest',
+        })
+
+        if (existingRequest) {
+            throw new HttpError("Request already made. ",409)
+        }
+
+        await Promise.all(superAdminList.map(async superAdmin=>
+            await Request.create({
+                sender: userId,
+                receiver: superAdmin._id,
+                type: 'user.fullAccountRequest',
+                content: `${user.realName} has requested to promote his basic account to full.`,
+                alias:newAlias
+            })
+        ))
+
+        res.status(201).send('Request sent successfully')
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
+    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest}

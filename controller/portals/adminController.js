@@ -130,6 +130,8 @@ async function removeFromPortal(req,res,next){
                 if (expoReviewing) {
                     await Promise.all(expoReviewing.map(async expo => {
                         expo.reviewer = {flag: false, user: null};
+                        expo.shareStatus="private";
+
                         await expo.save();
                         //la notifica arriva all'esposizione (a tutti gli autori+creatore)
                         const notification = await Notification.findOne({receiver: expo._id})
@@ -147,10 +149,24 @@ async function removeFromPortal(req,res,next){
                 await portal.save();
             }
 
-            const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId}).populate("groups")
+            const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId}).populate("groups").populate("expositions")
 
 
             if (userToRemoveFull) {
+                await Promise.all(userToRemoveFull.expositions.map(async e=>{
+                    if(e.portal.equals(portal._id)){
+                        e.portal=null;
+                        e.shareStatus="private"
+                        e.reviewer={flag:false,user:null}
+                        await e.save();
+
+                        console.log("LOG DEBUG INDICE ESPOSIZIONE NEL PORTALE: ",portal.expositionsLinked.indexOf(e._id))
+                        portal.expositionsLinked.splice(portal.expositionsLinked.indexOf(e._id),1)
+                    }
+                }))
+                await portal.save()
+
+
                 userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.populate !== portal._id)
                 await userToRemoveFull.save()
 

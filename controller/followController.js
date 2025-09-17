@@ -58,7 +58,6 @@ async function getFollowedPortals(req,res,next){
                 //save
                 await userAccount.save();
                 return({
-                    //orcodiooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
                     portal:0,
                     flags:[]
                 })
@@ -83,6 +82,7 @@ async function getFollowedPortals(req,res,next){
 
 // valida sia per i portali che per gli utenti
 async function addFollowed(req, res, next){
+
     const userId = req.user.id
     const addId = req.params.id;
     try{

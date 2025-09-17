@@ -1,0 +1,20 @@
+✓   1)Creare la funzione in superAC per le richieste da basic a full - richiesta in userController
+
+✓   2)Gestire la creazione delle notifiche dei follower per le esposizioni
+
+✓   3)Creare la funzione del getExposition (una proprio)
+
+   4)Creare la funzione per permettere all'utente di lasciare il portale
+
+   5)Creare funzione che permette a utente di lasciare gruppo
+
+   6),, uscire da collaborazione per un esposizione
+
+
+Da chiedere:
+Il superadmin può vedere qualsiasi esposizione?
+
+Perchè i salmoni nuotano controcorrente?
+
+Cosa sono i gruppi rispetto alle collab (e alle expositions)?
+

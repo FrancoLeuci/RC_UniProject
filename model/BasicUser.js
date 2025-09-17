@@ -59,11 +59,11 @@ const basicUserSchema = new mongoose.Schema({
         ref: Portal
     }],
 
-    roles: [{
+    role: {
         type: String,
         enum: ["super-admin", "limited-user"],
         default: 'limited-user'
-    }],
+    },
 
     passwordForgottenKey: { type: String },
 

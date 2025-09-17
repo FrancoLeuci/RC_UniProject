@@ -105,7 +105,7 @@ async function getAllInfo(req, res, next){
 
 async function getPortals(req, res, next){
     try{
-        const portals = await Portal.find({"features.PROFILE": true})
+        const portals = await Portal.find({})
 
         res.status(200).json({ok: true, portals})
     }catch(err){

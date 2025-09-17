@@ -48,7 +48,7 @@ async function expoStatus(req, res, next){
     const expoId = req.params.expoId
     const {action} = req.body
     try{
-        const expo = await Exposition.findById(expoId)
+        const expo = await Exposition.findById(expoId).populate("portal")
         if(!expo) throw new HttpError('Exposition not found',404)
 
         if(expo.published)throw new HttpError("Exposition already published. ",409)
@@ -57,10 +57,41 @@ async function expoStatus(req, res, next){
 
         const notificationReviewer = await Notification.findOne({receiver: new mongoose.Types.ObjectId(reviewer)})
         const creator = expo.authors.find(a => a.role==="creator")
-        const notificationCreator = await Notification.findOne({receiver: creator.userId})
+        const creatorFullAccount=await FullUser.findById(creator.userId)
+        const notificationCreator = await Notification.findOne({receiver: creatorFullAccount.basicCorrespondent})
         if(action==='rejected'){
             expo.shareStatus = 'private' //lo stato cambia per permettere ai membri di editarlo
         } else if(action==='accepted'){
+            let userToShowNotification=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+
+            await Promise.all(userToShowNotification.map(async user => {
+                let notification = await Notification.findOne({receiver: user._id})
+                if(notification){
+                    notification.feed.push(`${creatorFullAccount.alias} has published the exposition ${expo.title}`)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: user._id,
+                        feed: `${creatorFullAccount.alias} has published the exposition ${expo.title}`
+                    })
+                }
+            }))
+
+            userToShowNotification=await BasicUser.find({followedPortals:expo.portal._id})
+
+            await Promise.all(userToShowNotification.map(async user => {
+                notification = await Notification.findOne({receiver: user._id})
+                if(notification){
+                    notification.feed.push(`Portal ${expo.portal.name} has a new published exposition: ${expo.title}, created by ${creatorFullAccount.alias}.`)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: user._id,
+                        feed: `Portal ${expo.portal.name} has a new published exposition: ${expo.title}, created by ${creatorFullAccount.alias}.`
+                    })
+                }
+            }))
+            
             expo.published=true;
         } else {
             throw new HttpError('Action not valid',400)

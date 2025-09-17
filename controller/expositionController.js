@@ -7,6 +7,8 @@ const Notification = require("../model/Notification");
 
 const {HttpError} = require("../middleware/errorMiddleware")
 
+//get Exposition
+
 async function createExposition(req,res,next){
     const userId = req.user.id;
     //servono nella richiesta nel body (minimo indisp)
@@ -75,11 +77,28 @@ async function setExpoPublic(req,res,next){
 
             expo.status="reviewing"
             await expo.save()
-
             return res.status(200).json({ok: true, message:'Request sent successfully.'})
         }
+
         expo.published=true;
         await expo.save()
+
+        //Voglio tutti gli utenti di BasicUser che, nell'array followedResearchers,
+        //abbiano l'id contenuto nella variabile creator._id
+        const userToShowNotification=await BasicUser.find({followedResearchers:creator.userId})
+
+        await Promise.all(userToShowNotification.map(async user => {
+            const notification = await Notification.findOne({receiver: user._id})
+            if(notification){
+                notification.feed.push(`${creator.realName} has published the exposition ${expo.title}`)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: user._id,
+                    feed: `${creator.realName} has published the exposition ${expo.title}`
+                })
+            }
+        }))
 
         res.status(200).json({ok: true, message:'Exposition publishing successfully.'})
     }catch(err){
@@ -115,6 +134,27 @@ async function editExpoMetadata(req,res,next){
         expo.copyright=copyright;
 
         await expo.save();
+
+        if(expo.shareStatus==='public'){
+            const creator=expo.authors.find(a=>a.role==="creator")
+            const creatorFullAccount=await FullUser.findById(creator.userId)
+            const userToShowNotification=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+
+            await Promise.all(userToShowNotification.map(async user => {
+                const notification = await Notification.findOne({receiver: user._id})
+                if(notification){
+                    notification.feed.push(`${creatorFullAccount.alias} has created the exposition ${expo.title}`)
+                    await notification.save()
+                } else {
+                    await Notification.create({
+                        receiver: user._id,
+                        feed: `${creatorFullAccount.alias} has created the exposition ${expo.title}`
+                    })
+                }
+            }))
+            
+        }
+
         res.status(201).send("Exposition edited correctly.")
     }catch(err){
         next(err)
@@ -298,4 +338,70 @@ async function editExposition(req,res,next){
         next(err)
     }
 }
+//pensata come funzione che mostra le esposizioni pubbliche in una sorta di Home
+async function getPublicExpositions(req,res,next){
+    try{
+        const expos=Exposition.find({shareStatus:"public"})
+        //nella response solo la lista, ziopera
+        res.status(200).json({expos})
+    }catch(err){
+        next(err)
+    }
+}
+
+//pensata invece per mostrare tutte le expo di un certo portale (pubbliche o pubbliche+portale)
+async function getPortalExpositions(req,res,next){
+    const userId=req.user.id
+    const portalId=req.params.portal
+    try{
+        const portal=await Portal.findById(portalId).populate("expositionsLinked")
+        if(!portal)throw new HttpError("Portal not found.",404)
+        const userBasicAccount=await BasicUser.findById(userId)
+        if(!userBasicAccount)throw new HttpError("User not found.",404)
+        //controllo che utente che fa la richiesta sia admin o membro del portale
+
+        let expositions = portal.expositionsLinked.filter(e=>e.shareStatus==="public")
+
+        const isMember=portal.members.include(userId)
+        const isAdmin=portal.admins.include(userId)
+        if(!(isMember||isAdmin||userBasicAccount.role==="super-admin")){
+            return res.status(200).json({exposition})
+        }else{ //se è membro/admin/superadmin
+            expositions = expositions.concat(portal.expositionsLinked.filter(e=>e.shareStatus==="portal"))
+            //pubbliche+di portale
+            return res.status(200).json({exposition})
+        }
+    }catch(err){
+        next(err)
+    }
+}
+
+async function getExposition(req,res,next){
+    const {userId} = req.body
+    const expoId = req.params.expoId
+    try{
+
+        const expo = await Exposition.findById(expo).populate('portal')
+        if(!expo) throw new HttpError('Exposition not found',404)
+
+        if(expo.shareStatus!=="public"){
+            if(!userId) throw new HttpError('User Id required',400)
+            const user = await BasicUser.findById(userId)
+            if(!user) throw new HttpError('User not found',404)
+            if(shareStatus==="private"&& expo.authors.find({userId: userId})){
+                return res.status(200).json({expo})
+            } else if(shareStatus==="portal"&&(expo.portal.admins.includes(userId)||expo.portal.members.includes(userId))){
+                return res.status(200).json({expo})
+            } else if(shareStatus==="reviewing"&&(expo.reviewer.user.equals(user._id))){
+                return res.status(200).json({expo})
+            }else{
+                throw new HttpError("Not Authorized. ",403)
+            }
+        }
+        res.status(200).json({expo})
+    }catch(err){
+        next(err)
+    }
+}
+
 module.exports = {createExposition,setExpoPublic,editExpoMetadata,addAuthor,removeAuthor,connectToPortal,editExposition}

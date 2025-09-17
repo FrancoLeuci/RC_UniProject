@@ -12,7 +12,7 @@ function verifyToken(req,res,next){
 
     jwt.verify(token,process.env.LOGIN_TOKEN, (err,decoded)=>{
         if(err){
-            console.error('Errore nel verifica jwt: ',err.name, err.message);
+            console.error('Errore nella verifica jwt: ',err.name, err.message);
             return res.status(403).json({message:'Proibito: Token non valido o scaduto'})
         }
         req.user = {
