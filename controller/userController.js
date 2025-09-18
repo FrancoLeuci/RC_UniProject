@@ -192,7 +192,7 @@ async function login(req, res, next){
         if(!user.verified){
             throw new HttpError("Account not verified, check your email",401)
             //return res.status(401).json({error: 'Account not verified'})
-       }
+        }
 
         const {accessToken,refreshToken,dataBase}=await generateTokens(user._id, user.roles);
         if(!dataBase){
@@ -370,7 +370,7 @@ async function requestToBecomeGroupMember(req, res, next){
             sender: userId,
             receiver: group._id,
             type: 'group.requestToAccess',
-             extra: group._id
+            extra: group._id
         });
 
         if (existingRequest) {
@@ -540,7 +540,7 @@ async function leavePortal(req,res,next){
             index=portal.reviewer.indexOf(userBasicAccount._id)
             if(index!==-1){
                 portal.reviewers.splice(index,1)
-                await Promise.all(portal.linkedExpositions.map(e=>{
+                await Promise.all(portal.linkedExpositions.map(async e=>{
                     if(reviewer==={flag:true,user:userBasicAccount._id}){
                         e.reviewer={flag:false,user:null};
                         e.shareStatus="private";
@@ -625,7 +625,7 @@ async function leavePortal(req,res,next){
             }
             res.status(200).send("You left the portal.")
         } else {throw new HttpError(`You are not a member/admin of ${portal.name} portal.`,400)}
-    }const(err){
+    }catch(err){
         next(err)
     }
 }
