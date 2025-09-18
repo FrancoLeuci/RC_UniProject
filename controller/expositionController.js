@@ -354,20 +354,20 @@ async function getPortalExpositions(req,res,next){
     const userId=req.user.id
     const portalId=req.params.portal
     try{
-        const portal=await Portal.findById(portalId).populate("expositionsLinked")
+        const portal=await Portal.findById(portalId).populate("linkedExpositions")
         if(!portal)throw new HttpError("Portal not found.",404)
         const userBasicAccount=await BasicUser.findById(userId)
         if(!userBasicAccount)throw new HttpError("User not found.",404)
         //controllo che utente che fa la richiesta sia admin o membro del portale
 
-        let expositions = portal.expositionsLinked.filter(e=>e.shareStatus==="public")
+        let expositions = portal.linkedExpositions.filter(e=>e.shareStatus==="public")
 
         const isMember=portal.members.include(userId)
         const isAdmin=portal.admins.include(userId)
         if(!(isMember||isAdmin||userBasicAccount.role==="super-admin")){
             return res.status(200).json({exposition})
         }else{ //se è membro/admin/superadmin
-            expositions = expositions.concat(portal.expositionsLinked.filter(e=>e.shareStatus==="portal"))
+            expositions = expositions.concat(portal.linkedExpositions.filter(e=>e.shareStatus==="portal"))
             //pubbliche+di portale
             return res.status(200).json({exposition})
         }
@@ -403,5 +403,156 @@ async function getExposition(req,res,next){
         next(err)
     }
 }
+
+//funzione per lasciare la collaborazione
+//passa per expoMiddleware, da req.full e req.expo
+async function leaveCollaboration(req,res,next){
+    const userFullAccount=req.full;
+    const exposition=req.expo;
+    try{
+        const creator=exposition.authors.find(a=>a.role==="creator");
+        if(creator.userId.equals(userFullAccount._id)){
+            throw new HttpError("You are the creator, you can't leave the collaboration. If you wish you can delete your exposition. The collab will end if you do so.",400)
+        }else if(exposition.authors.find(a=>a.userId.equals(userFullAccount._id))){
+
+            //togliere co autore da lista autori
+            exposition.authors.splice(exposition.authors.indexOf(userFullAccount._id),1)
+            //togliere expo da lista expos dell'utente in questione
+            userFullAccount.expositions.splice(userFullAccount.expositions.indexOf(exposition._id))
+            await exposition.save()
+            await userFullAccount.save()
+        }else{
+            throw new HttpError("User is not collaborating in this exposition. ",400)
+        }
+        //notifica al creatore dell'expo (e quindi della collab)
+
+        const notification = await Notification.findOne({receiver: creator.userId})
+        if(notification){
+            notification.backlog.push(`${userFullAccount.alias} has left the collaboration for you exposition ${exposition.title}.`)
+            await notification.save() //sta qui
+        } else {
+            await Notification.create({
+                receiver: creator.userId,
+                backlog: `${userFullAccount.alias} has left the collaboration for you exposition ${exposition.title}.`
+            })
+        }
+
+        res.status(200).send(`You have left ${exposition.title} collaboration.`)
+
+    }catch(err){
+        next(err)
+    }
+}
+
+
+//funzione per cancellare un'esposizione
+//il creatore (full) decide di cancellare l'esposizione..
+//rimuovere dagli autori l'esposizione
+//rimuovere dal portale, dall'linkedExpositions
+//dal gruppo?
+//rimuovere l'expo
+
+
+async function deleteExposition(req,res,next){
+    const userFull=req.full;
+    const expo=req.expo;
+    try{
+        const creator=expo.authors.find(a=>a.role==="creator");
+        if(!creator.userId.equals(userFull._id)) throw new HttpError("You are not the creator, you can't delete this exposition.",403)
+        userFull.expositions.splice(userFull.expositions.indexOf(expo._id))
+        await userFull.save();
+        await expo.populate([
+            {path:"authors.userId"},
+            {path:"portal"}
+        ])
+        await Promise.all(expo.authors.map(async a=>{
+            if(a.role!=="creator"){
+                a.userId.expositions.splice(a.userId.expositions.indexOf(expo._id),1)
+                const notification = await Notification.findOne({receiver: a.userId.basicCorrespondent})
+                if(notification){
+                    notification.backlog.push(`${userFull.alias} has deleted the exposition ${exposition.title}.`)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: a.userId.basicCorrespondent,
+                        backlog: `${userFull.alias} has deleted the exposition ${exposition.title}.`
+                    })
+                }
+            }
+            await a.userId.save()
+        }))
+
+        if(expo.portal){
+            expo.portal.linkedExpositions.splice(expo.portal.expositions.indexOf(expo._id),1);
+            await expo.portal.save();
+            const notification = await Notification.findOne({receiver: expo.portal._id})
+            if(notification){
+                notification.backlog.push(`${userFull.alias} has deleted the exposition ${exposition.title}.`)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: expo.portal._id,
+                    backlog: `${userFull.alias} has deleted the exposition ${exposition.title}.`
+                })
+            }
+        }
+
+        await Exposition.findByIdAndDelete(expo._id)
+
+        res.status(200).send('Exposition delete successfully')
+    }catch(err){
+        next(err)
+    }
+}
+
+async function removeFromPortal(req, res, next){
+    const expo = req.expo
+    const userFull = req.full
+    try{
+        const isCreator = expo.authors.find(a => a==={role:'creator', userId: userFull._id})
+        if(!isCreator) throw new HttpError('You aren\'t the creator',401)
+        if(expo.portal){
+            await expo.populate("portal")
+            expo.portal.splice(expo.portal.splice.indexOf(expo._id),1)
+            await expo.portal.save()
+
+            const notification = await Notification.findOne({receiver: expo.portal._id})
+            if(notification){
+                notification.backlog.push(`${userFull.alias} has removed the exposition ${exposition.title} from the portal.`)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: expo.portal._id,
+                    backlog: `${userFull.alias} has removed the exposition ${exposition.title} from the portal.`
+                })
+            }
+
+            expo.portal = null
+            if(expo.shareStatus==='reviewing'){
+                expo.shareStatus='private'
+                expo.reviewer={flag:false, user:null}
+
+                const notification = await Notification.findOne({receiver: expo.reviewer.user})
+                if(notification){
+                    notification.backlog.push(`You're not a reviewer of ${expo.title} anymore, because the exposition left the portal. `)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: expo.reviewer.user,
+                        backlog: `You're not a reviewer of ${expo.title} anymore, because the exposition left the portal. `
+                    })
+                }
+            }
+            await expo.save();
+        } else {
+            throw new HttpError('The exposition is not linked to any portal',400)
+        }
+
+        res.status(200).json(`${expo.title} removed from ${expo.portal.name} portal`)
+    }catch(err){
+        next(err)
+    }
+}
+
 
 module.exports = {createExposition,setExpoPublic,editExpoMetadata,addAuthor,removeAuthor,connectToPortal,editExposition}

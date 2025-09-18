@@ -58,7 +58,7 @@ const PortalSchema = new mongoose.Schema(
             ref: Image
         },
 
-        expositionsLinked:[{
+        linkedExpositions:[{
             type:mongoose.Schema.Types.ObjectId,
             ref:Exposition
         }]

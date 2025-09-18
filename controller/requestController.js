@@ -77,7 +77,7 @@ async function actionRequest(req, res, next) {
             //verifico che colui che compie l'azione sia un admin del portale
             if(!portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
             if(action==="accepted"){
-                portal.expositionsLinked.push(request.extra)
+                portal.linkedExpositions.push(request.extra)
                 await portal.save()
 
                 const expo = await Exposition.findById(request.extra)

@@ -160,8 +160,8 @@ async function removeFromPortal(req,res,next){
                         e.reviewer={flag:false,user:null}
                         await e.save();
 
-                        console.log("LOG DEBUG INDICE ESPOSIZIONE NEL PORTALE: ",portal.expositionsLinked.indexOf(e._id))
-                        portal.expositionsLinked.splice(portal.expositionsLinked.indexOf(e._id),1)
+                        console.log("LOG DEBUG INDICE ESPOSIZIONE NEL PORTALE: ",portal.linkedExpositions.indexOf(e._id))
+                        portal.linkedExpositions.splice(portal.linkedExpositions.indexOf(e._id),1)
                     }
                 }))
                 await portal.save()
@@ -320,7 +320,8 @@ async function getPortalMembers(req, res, next){
 
 async function createGroup(req, res, next){
     const portal = req.portal
-    const {title, description} = req.body;
+    const {title, description,} = req.body;
+
     try{
         //controllo sul body
         if(!title) throw new HttpError('Title is required',400)
@@ -518,6 +519,75 @@ async function requestToRemovePortal(req,res,next){
         next(err)
     }
 }
+
+async function removeLinkedExposition(req,res,next){
+    const portal=req.portal;
+    const expoId=req.params.expo
+    try{
+        //rimuovere dall'expo il portale
+        const expo=await Exposition.findById(expoId);
+
+        if(!expo.portal.equals(portal._id)) throw new HttpError('This exposition is not linked to the portal',409)
+
+        expo.portal=null
+
+        //rimuovere lo stato di review (if) ...
+        if(expo.shareStatus==="reviewing"){
+            expo.shareStatus="private";
+
+
+            //notifica all'esposizione che non è più in fase di review
+            let notification = await Notification.findOne({receiver: expo._id})
+            if(notification){
+                notification.backlog.push(`${expo.title} is not undergoing review anymore, since a portal admin has removed it from the portal it was linked to. `)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: expo._id,
+                    backlog: `${expo.title} is not undergoing review anymore, since a portal admin has removed it from the portal it was linked to.  `
+                })
+            }
+
+            //notifica al reviewer in questione che non deve più fare nessuna review per quell'esposizione
+            notification = await Notification.findOne({receiver: expo.reviewer.user})
+            if(notification){
+                notification.backlog.push(`${expo.title} is not linked to ${portal.name} portal anymore, you don't have to review its content.`)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: expo.reviewer.user,
+                    backlog: `${expo.title} is not linked to ${portal.name} portal anymore, you don't have to review its content.`
+                })
+            }
+
+            expo.reviewer={false,null};
+
+        }
+
+        await expo.save();
+        const adminBasic=await BasicUser.findById(req.user.id)
+        //rimuovere expo da lista del portale
+        portal.linkedExpositions.splice(portal.linkedExpositions.indexOf(expo._id),1)
+
+        let notification = await Notification.findOne({receiver: portal._id})
+        if(notification){
+            notification.backlog.push(`${adminBasic.realName} has removed exposition: ${expo.title} from ${portal.name} portal.`)
+            await notification.save() //sta qui
+        } else {
+            await Notification.create({
+                receiver: portal._id,
+                backlog: `${adminBasic.realName} has removed exposition: ${expo.title} from ${portal.name} portal.`
+            })
+        }
+
+        await portal.save()
+
+        res.status(200).send(`${expo.title} removed from the portal`)
+    }catch(err){
+        next(err)
+    }
+}
+
 
 module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
     removeReviewer, selectReviewer, requestToRemovePortal}

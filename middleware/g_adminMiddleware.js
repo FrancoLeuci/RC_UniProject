@@ -10,13 +10,10 @@ async function groupAdminCheck(req,res,next){
         const group = await Group.findById(groupId)
         const isAdminG= group.admins.includes(adminId);
 
-        //TODO: discutere meglio sul ruolo dei portal_admin nei gruppi
-        const portal = await Portal.findById(group.portal)
-        const isAdminP = portal.admins.includes(adminId);
 
         if(!group){
             throw new Error("groupError");
-        }else if(!isAdminG&&!isAdminP) {
+        }else if(!isAdminP) {
             throw new Error("adminError");
         }else{
             req.group=group;

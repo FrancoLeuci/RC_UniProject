@@ -4,17 +4,25 @@
 
 ✓   3)Creare la funzione del getExposition (una proprio)
 
-   4)Creare la funzione per permettere all'utente di lasciare il portale
+✓   4)Creare la funzione per permettere all'utente di lasciare il portale
 
-   5)Creare funzione che permette a utente di lasciare gruppo
+✓   5)Creare funzione che permette a utente di lasciare gruppo
 
-   6),, uscire da collaborazione per un esposizione
+✓  6),, uscire da collaborazione per un esposizione
+
+✓  7)Sistemare la logica del gruppo -
+
+   8)Testare le funzioni create tra ieri ed oggi :( borgodio
 
 
 Da chiedere:
+
 Il superadmin può vedere qualsiasi esposizione?
 
 Perchè i salmoni nuotano controcorrente?
 
-Cosa sono i gruppi rispetto alle collab (e alle expositions)?
+Cosa sono i gruppi rispetto alle collab (e alle expositions)?ù
 
+Group admin: il primo viene deciso in fase di creazione gruppo dal portal admin
+
+Sistemare e capire funzioni di response e request per creazione di gruppi e portali (adminC e sAdminC)

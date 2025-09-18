@@ -72,7 +72,14 @@ async function addMember(req, res, next){
     const group = req.group;
     const newMemberId = req.params.id
     try{
-        //TODO: porre il controllo se la richiesta è stata già effettuata da qualcun altro
+        const existingRequest = await Request.findOne({
+            sender: userId,
+            receiver: newMemberId,
+            type: "group.addMember",
+            extra: group._id
+        })
+
+        if(existingRequest) throw new HttpError('Request already made',400)
 
         //controllo sull'utente che viene aggiunto
         const newMember = await BasicUser.findById(newMemberId)

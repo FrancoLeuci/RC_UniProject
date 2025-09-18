@@ -97,7 +97,7 @@ async function portalDeletionResponse(req,res,next){
         if(action === 'accepted'){
             //togliere dalle expo il portale
             const portal=await Portal.findById(request.extra)
-            await Promise.all(portal.expositionsLinked.map(async e=>{
+            await Promise.all(portal.linkedExpositions.map(async e=>{
                 const expo=await Exposition.findById(e)
                 expo.portal=null;
 
@@ -254,7 +254,7 @@ async function userDeletionResponse(req,res,next){
 
         if(action==="accepted"){
             //NuovoAccount10
-            const userToDelete = await BasicUser.findById(request.sender).populate({path:"portals", populate:{path:"expositionsLinked",}}) //nested populate
+            const userToDelete = await BasicUser.findById(request.sender).populate({path:"portals", populate:{path:"linkedExpositions",}}) //nested populate
             //togliere dai portali
             await Promise.all(userToDelete.portals.map(async p =>{
                 let index = p.admins.indexOf(userToDelete._id)
@@ -268,7 +268,7 @@ async function userDeletionResponse(req,res,next){
                 //rimozione dalle esposizioni in reviewing
                 if(index!==(-1)) { //creare un'esposizione dove user10 deve essere un reviwer
                     p.reviewers.splice(index,1)
-                    await Promise.all(p.expositionsLinked.map(async expo => {
+                    await Promise.all(p.linkedExpositions.map(async expo => {
                         if(expo.reviewer.user.equals(userToDelete._id)){
                             expo.reviewer = {flag: false, user: null}
                             expo.shareStatus='private';
@@ -335,8 +335,8 @@ async function userDeletionResponse(req,res,next){
                     if(expo.authors.find(a => a.role==="creator"&& (String(a.userId._id)===String(userToDeleteFull._id)))){
                         //eliminazione dell'expo dal portale
                         if(expo.portal){
-                            let index = expo.portal.expositionsLinked.indexOf(expo._id)
-                            expo.portal.expositionsLinked.splice(index,1)
+                            let index = expo.portal.linkedExpositions.indexOf(expo._id)
+                            expo.portal.linkedExpositions.splice(index,1)
                             await expo.portal.save()
                         }
 
