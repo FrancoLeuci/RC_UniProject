@@ -20,7 +20,7 @@ const requestSchema = new mongoose.Schema({
             "group.requestToAccess", //svolta dall'utente verso il gruppo
             //users
             "user.selfDeleteRequest",
-            "user.fullAccount.Request"
+            "user.fullAccountRequest"
         ],
     },
 

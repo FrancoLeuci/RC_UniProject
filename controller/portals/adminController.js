@@ -318,20 +318,29 @@ async function getPortalMembers(req, res, next){
     }
 }
 
+
+//TODO: da sistemare
 async function createGroup(req, res, next){
     const portal = req.portal
-    const {title, description,} = req.body;
+    const {title, description, adminId} = req.body;
 
     try{
         //controllo sul body
         if(!title) throw new HttpError('Title is required',400)
         if(!description) throw new HttpError('Description is required',400)
 
-        await Group.create({
+        const adminFullAccount = await FullUser.findOne({basicCorrespondent: adminId})
+
+        const group = await Group.create({
             title,
             description,
-            portal: portal._id
+            portal: portal._id,
+            admins: [adminFullAccount._id]
         })
+
+
+        adminFullAccount.groups.push(group._id)
+        await adminFullAccount.save()
 
         res.status(201).json({ok: true, message:'Group create successfully'})
     }catch(err){
@@ -527,14 +536,13 @@ async function removeLinkedExposition(req,res,next){
         //rimuovere dall'expo il portale
         const expo=await Exposition.findById(expoId);
 
-        if(!expo.portal.equals(portal._id)) throw new HttpError('This exposition is not linked to the portal',409)
+        if(!expo.portal?.equals(portal._id)) throw new HttpError('This exposition is not linked to the portal',409)
 
         expo.portal=null
 
         //rimuovere lo stato di review (if) ...
         if(expo.shareStatus==="reviewing"){
             expo.shareStatus="private";
-
 
             //notifica all'esposizione che non è più in fase di review
             let notification = await Notification.findOne({receiver: expo._id})
@@ -560,11 +568,11 @@ async function removeLinkedExposition(req,res,next){
                 })
             }
 
-            expo.reviewer={false,null};
+            expo.reviewer={flag: false,user: null};
 
         }
-
         await expo.save();
+
         const adminBasic=await BasicUser.findById(req.user.id)
         //rimuovere expo da lista del portale
         portal.linkedExpositions.splice(portal.linkedExpositions.indexOf(expo._id),1)
@@ -590,4 +598,4 @@ async function removeLinkedExposition(req,res,next){
 
 
 module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
-    removeReviewer, selectReviewer, requestToRemovePortal}
+    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition}

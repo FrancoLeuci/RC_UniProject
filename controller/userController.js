@@ -7,6 +7,8 @@ const RefreshToken=require("../model/tokenModel")
 const Portal = require("../model/Portal")
 const Request = require("../model/Request");
 const Group = require("../model/Group");
+const FullUser=require("../model/FullUser")
+
 require('dotenv').config();
 
 const {HttpError} = require("../middleware/errorMiddleware");
@@ -424,12 +426,15 @@ async function deleteSelfRequest(req,res,next){
         const user=await BasicUser.findById(userId).populate("portals")
         const userFullAccount=await FullUser.findOne({basicCorrespondent:user._id}).populate("groups")
         //controllo sui gruppi, se è unico admin deve promuovere almeno un altro alla posizione
-        if(userFullAccount) {
-            const oneAdminNotification = ''
-            userFullAccount.groups.map(pg => {
-                if (pg.admins.includes(userFullAccount._id) && pg.admins.length === 1) oneAdminNotification.concat(`${pg.title}, `)
+        if(userFullAccount){
+            let oneAdminNotification = []
+            userFullAccount.groups.forEach(pg=>{
+                if(pg.admins.includes(userFullAccount._id)&&pg.admins.length===1) oneAdminNotification.push(pg.title)
             })
-            if (oneAdminNotification !== '') throw new HttpError(`${oneAdminNotification} only has/have 1 admin. Promote a member to cancel the account. `, 409)
+            if(oneAdminNotification.length>0){
+                throw new HttpError(
+                    `${oneAdminNotification.join(", ")} only has/have 1 admin. Promote a member for each portal to leave the portal.`, 409);
+            }
         }
 
 
@@ -512,6 +517,7 @@ async function fullAccountRequest(req,res,next){
 
 //verifytoken e basta
 async function leavePortal(req,res,next){
+
     const userId = req.user.id
     const portalId = req.params.portal
     try{
@@ -519,13 +525,17 @@ async function leavePortal(req,res,next){
         if(!portal)throw new HttpError("Portal not found.",404)
         const userBasicAccount=await BasicUser.findById(userId)
         const userFullAccount=await FullUser.findOne({basicCorrespondent:userBasicAccount._id}).populate("groups").populate("expositions")
-        const portalGroups = userFullAccount.groups.filter(g => g.portal.equals(portal._id))
+
         if(userFullAccount){
-            const oneAdminNotification = ''
-            portalGroups.map(pg=>{
-                if(pg.admins.includes(userFullAccount._id)&&pg.admins.length===1) oneAdminNotification.concat(`${pg.title}, `)
+            const portalGroups = userFullAccount.groups.filter(g => g.portal.equals(portal._id))
+            let oneAdminNotification = []
+            portalGroups.forEach(pg=>{
+                if(pg.admins.includes(userFullAccount._id)&&pg.admins.length===1) oneAdminNotification.push(pg.title)
             })
-            if(oneAdminNotification!=='') throw new HttpError(`${oneAdminNotification} only has/have 1 admin. Promote a member to leave the portal. `,409)
+            if(oneAdminNotification.length>0){
+                throw new HttpError(
+                    `${oneAdminNotification.join(", ")} only has/have 1 admin. Promote a member for each portal to leave the portal.`, 409);
+            }
         }
 
         if(userBasicAccount.portals.includes(portal._id)){
@@ -537,11 +547,13 @@ async function leavePortal(req,res,next){
                 if(portal.admins.length===1) throw new HttpError(`Can't process this request, you are the only admin in ${portal.name}. Add another admin to the list and then request again.`,400)
                 portal.admins.splice(index,1)
             }
-            index=portal.reviewer.indexOf(userBasicAccount._id)
+            index=portal.reviewers.indexOf(userBasicAccount._id)
             if(index!==-1){
                 portal.reviewers.splice(index,1)
                 await Promise.all(portal.linkedExpositions.map(async e=>{
-                    if(reviewer==={flag:true,user:userBasicAccount._id}){
+                    console.log("reviewer dall'expo: ",e.reviewer)
+                    console.log("cond su reviewerflag : ",e.reviewer.user?.equals(userBasicAccount._id))
+                    if(e.reviewer.user?.equals(userBasicAccount._id)){
                         e.reviewer={flag:false,user:null};
                         e.shareStatus="private";
                         await e.save();
@@ -579,10 +591,11 @@ async function leavePortal(req,res,next){
 
             //esce dai gruppi
             if(userFullAccount){
+                const portalGroups = userFullAccount.groups.filter(g => g.portal.equals(portal._id))
                 await Promise.all(userFullAccount.groups.map(async g=>{
-                    let index=g.admins.indexOf(userBasicAccount._id);
+                    let index=g.admins.indexOf(userFullAccount._id);
                     if(index===-1){
-                        index=g.members.indexOf(userBasicAccount._id);
+                        index=g.members.indexOf(userFullAccount._id);
                         g.members.splice(index,1)
                     } else {
                         g.admins.splice(index,1)
@@ -601,14 +614,14 @@ async function leavePortal(req,res,next){
                     }
                 }))
 
-                userFullAccount.groups=userFullAccount.groups.filter(g=>g.portal!==portal._id)
+                userFullAccount.groups=userFullAccount.groups.filter(g=>!g.portal.equals(portal._id))
                 await userFullAccount.save()
 
                 //ho popolato linkedExpositions ed expositions rispettivamente da portal e userFullAccount
                 await Promise.all(userFullAccount.expositions.map(async e=>{
                     //se è collegata al portale di cui sopra
-                    if(e.portal.equals(portal._id)){
-                        e.portal=null;
+                    if(e.portal?.equals(portal._id)){
+                        e.portal=0;
                         //se sta in fase di reviewing
                         if(e.shareStatus==="reviewing"){
                             e.shareStatus="private";
@@ -617,12 +630,12 @@ async function leavePortal(req,res,next){
 
                         await e.save()
                         //viene rimossa la traccia nel portale
-                        portal.linkedExpositions=portal.linkedExpositions.filter(eL=>eL._id!==e._id)
-                        await portal.save()
+                        portal.linkedExpositions=portal.linkedExpositions.filter(eL=>!eL._id.equals(e._id))
                     }
-
                 }))
             }
+
+            await portal.save()
             res.status(200).send("You left the portal.")
         } else {throw new HttpError(`You are not a member/admin of ${portal.name} portal.`,400)}
     }catch(err){
@@ -636,27 +649,37 @@ async function leaveGroup(req,res,next){
     const groupId=req.params.groupId
     try{
         const group=await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found',404)
+        if(!group) throw new HttpError('Group not found.',404)
         const userFullAccount=await FullUser.findOne({basicCorrespondent:userId})
         if(!userFullAccount){
             throw new HttpError("User does not have a full account. ",400)
         }
 
         if(userFullAccount.groups.includes(group._id)){
-            userFullAccount.groups=userFullAccount.groups.filter(g=>g!==group._id)
+            userFullAccount.groups=userFullAccount.groups.filter(g=>!g.equals(group._id))
             let index=group.members.indexOf(userFullAccount._id)
-            if(index!==-1){
-                if(group.admins.lenght===1) throw new HttpError(`Can't process this request, you are the only admin in ${group.title}. Add another admin to the list and then request again.`,400)
+            if(index===-1){
+                if(group.admins.length===1) throw new HttpError(`Can't process this request, you are the only admin in ${group.title}. Add another admin to the list and then request again.`,400)
                 group.admins.splice(group.admins.indexOf(userFullAccount._id),1)
             }else{
                 group.members.splice(index,1)
             }
 
+            const notification = await Notification.findOne({receiver: group._id})
+            if (notification) {
+                notification.backlog.push(`${userFullAccount.alias} has left the Group ${group.title}. `)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: group._id,
+                    backlog: `${userFullAccount.alias} has left the Group ${group.title}. `
+                })
+            }
+
             await userFullAccount.save()
             await group.save();
-
         } else {
-            throw new HttpError(`You are not a member/admin of ${group.title} group`,400)
+            throw new HttpError(`You are not a member/admin of ${group.title} group.`,400)
         }
         res.status(200).send("You left the group.")
     }catch(err){
@@ -665,4 +688,4 @@ async function leaveGroup(req,res,next){
 }
 
 module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
-    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest}
+    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup}

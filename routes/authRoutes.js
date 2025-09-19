@@ -1,5 +1,5 @@
 const express = require('express');
-const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName, deleteSelfRequest} = require('../controller/userController')
+const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup} = require('../controller/userController')
 const {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups} = require('../controller/profileController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
@@ -10,6 +10,9 @@ router.put('/verification/:id', accountVerify)
 router.post('/login', login)
 router.post('/logout', logout)
 
+router.put('/upgrade',verifyToken, fullAccountRequest)
+router.put('/leavePortal/:portal', verifyToken, leavePortal)
+router.put('/leaveGroup/:groupId', verifyToken, leaveGroup)
 router.put('/delete', verifyToken, deleteSelfRequest)
 
 router.put('/reset', resetPasswordRequest)

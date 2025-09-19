@@ -269,7 +269,7 @@ async function userDeletionResponse(req,res,next){
                 if(index!==(-1)) { //creare un'esposizione dove user10 deve essere un reviwer
                     p.reviewers.splice(index,1)
                     await Promise.all(p.linkedExpositions.map(async expo => {
-                        if(expo.reviewer.user.equals(userToDelete._id)){
+                        if(expo.reviewer.user?.equals(userToDelete._id)){
                             expo.reviewer = {flag: false, user: null}
                             expo.shareStatus='private';
                             await expo.save()

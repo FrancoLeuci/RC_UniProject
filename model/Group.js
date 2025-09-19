@@ -36,12 +36,12 @@ const groupSchema = new mongoose.Schema({
     },
     admins: [{ //possono essere scelti solo dai portal_admin,
         type: mongoose.Schema.Types.ObjectId,
-        ref: "FullUser",
+        ref: FullUser,
         default: []
     }],
     members: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "FullUser",
+        ref: FullUser,
         default: []
     }],
     portal: {

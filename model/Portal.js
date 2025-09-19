@@ -11,7 +11,6 @@ const PortalSchema = new mongoose.Schema(
         issn: { type: String }, //identificatore unico nel mondo, fornito da società internazionale
         url: { type: String }, //rimanda a un sito associato al portale in questione
 
-
         admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin
         reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
         members: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
