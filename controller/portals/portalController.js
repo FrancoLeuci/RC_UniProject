@@ -1,4 +1,6 @@
 const Portal = require("../../model/Portal");
+const Group = require("../../model/Group");
+const FullUser = require("../../model/FullUser");
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -29,13 +31,6 @@ async function edit (req, res, next){
             //return res.status(400).json({message: 'Missing description'})
         } else {
             portal.description = body.description
-        }
-
-        if(!body.longDescription){
-            throw new HttpError("Long Description is required",400)
-            //return res.status(400).json({message: 'Missing Long Description'})
-        } else {
-            portal.longDescription = body.longDescription
         }
 
         if(!body.viewText){
@@ -115,4 +110,25 @@ async function getPortals(req, res, next){
     }
 }
 
-module.exports = {edit, getAllInfo, getPortals}
+async function getGroups(req, res, next){
+    const userId = req.user.id;
+    const portalId = req.params.portal
+    try{
+        const portalGroups = await Group.find({portal: portalId})
+
+        const portal = await Portal.findById(portalId)
+        if(portal.admins.includes(userId)){
+            return res.status(200).json(portalGroups)
+        }
+
+        const userFull=await FullUser.findOne({basicCorrespondent: userId}).populate("groups")
+        if(!userFull) throw new HttpError('You are not a Full Account',401)
+        const userFullGroups=portalGroups.filter(group => userFull.groups.includes(group._id))
+        res.status(200).json(userFullGroups) //solo i gruppi del portale di cui il fulluser fa parte, se è vuoto frontend scrive che non stanno gruppi da mostrare :)
+
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {edit, getAllInfo, getPortals, getGroups}

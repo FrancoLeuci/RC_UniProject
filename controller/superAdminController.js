@@ -13,7 +13,6 @@ const {google} = require("googleapis");
 const nodemailer = require("nodemailer");
 
 //funzione per promuovere basic-user a full-user
-//TODO: gestione delle problematiche dovute a copyright di media o di esposizioni (chiedere se ci deve essere una richiesta previa)
 
 async function emailSender (email){
     try{
@@ -202,38 +201,75 @@ async function portalDeletionResponse(req,res,next){
 }
 
 //ci serve sapere come arriva la richiesta di creazione
-async function createPortalRequest(req,res,next){
+//FRONTEND dopo aver cliccato reject si fa uscire pop up un box di testo dove il super admin può scrivere il perchè sta rifiutando la richiesta
+async function createPortalResponse(req,res,next){
     const sAdminId=req.user.id
-    const {name, emailFirstAdmin}=req.body
+    const reqId = req.params.rqId
+    const {action,rejectText} = req.body
     try{
         const isSuperAdmin=await BasicUser.findOne({_id: sAdminId, role: 'super-admin'})
         if(!isSuperAdmin) throw new HttpError("You are not a super admin.",403)
 
-        if(!name) throw new HttpError("Name required.",400)
-        if(!emailFirstAdmin)throw new HttpError("Email required.",404)
+        const request=await Request.findById(reqId)
+        if(!request) throw new HttpError("Request not found",404)
+        if(request.type!=="portal.create") throw new HttpError('Wrong request type.',404)
 
-        const firstAdmin=await BasicUser.findOne({email: emailFirstAdmin})
-        if(!firstAdmin) throw new HttpError("User to promote not found.",404)
 
-        const portal = await Portal.create({
-            name,
-            admins: [firstAdmin._id]
-        })
-
-        firstAdmin.portals.push(portal._id)
-        await firstAdmin.save()
-
-        const notification = await Notification.findOne({receiver: firstAdmin._id})
-        if(notification){
-            notification.backlog.push(`Super-admin has created a new portal named ${name} and has promoted you to portal admin role. `)
-            await notification.save()
-        } else {
-            await Notification.create({
-                receiver: firstAdmin._id,
-                backlog: `Super-admin has created a new portal named ${name} and has promoted you to portal admin role. `
+        if(action==='accepted'){
+            const portal = await Portal.create({
+                name:request.formFields.title,
+                description:request.formFields.description,
+                admins: [request.formFields.adminList]
             })
+
+            await Promise.all(request.formFields.adminList.map(async admin => {
+                const user = await BasicUser.findById(admin)
+
+                user.portals.push(portal._id)
+                await user.save()
+
+                const notification = await Notification.findOne({receiver: admin})
+                if(notification){
+                    notification.backlog.push(`Super-admin has created a new portal named ${portal.name} and has promoted you to portal admin role. `)
+                    await notification.save()
+                } else {
+                    await Notification.create({
+                        receiver: admin,
+                        backlog: `Super-admin has created a new portal named ${portal.name} and has promoted you to portal admin role. `
+                    })
+                }
+            }))
+        } else if(action==='rejected'){
+            const notification = await Notification.findOne({receiver: request.sender})
+            if(notification){
+                if(rejectText){
+                    notification.backlog.push(`Super-admin has rejected your request with the following reason: ${rejectText}`)
+                    await notification.save()
+                } else {
+                    notification.backlog.push(`Super-admin has rejected your request to create a portal. `)
+                    await notification.save()
+                }
+
+            } else {
+                if(rejectText){
+                    await Notification.create({
+                        receiver: request.sender,
+                        backlog: `Super-admin has rejected your request with the following reason: ${rejectText} `
+                    })
+                } else {
+                    await Notification.create({
+                        receiver: request.sender,
+                        backlog: `Super-admin has rejected your request to create a portal. `
+                    })
+                }
+            }
+        } else {
+            throw new HttpError('Action no valid',400)
         }
-        res.status(201).send('Portal created successfully')
+
+        await Request.deleteMany({type:"portal.create", sender: request.sender,"formFields.title":request.formFields.title})
+
+        res.status(201).send('Request responded successfully.')
     }catch(err){
         next(err)
     }
@@ -439,7 +475,6 @@ async function fullAccountResponse(req,res,next){
                 basicCorrespondent:request.sender,
                 alias:request.alias
             })
-            console.log("FULLUSER NUOVO: ",newFull)
         } else if(action!=="rejected"){throw new HttpError('Action not valid',400)}
 
         const notification = await Notification.findOne({receiver: request.sender})
@@ -458,4 +493,4 @@ async function fullAccountResponse(req,res,next){
     }
 }
 
-module.exports = {addSuperAdmin, portalDeletionResponse, createPortalRequest, userDeletionResponse, fullAccountResponse}
+module.exports = {addSuperAdmin, portalDeletionResponse, createPortalResponse, userDeletionResponse, fullAccountResponse}

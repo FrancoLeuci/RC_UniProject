@@ -13,7 +13,10 @@ const {HttpError} = require("../middleware/errorMiddleware");
 async function actionRequest(req, res, next) {
     const userId = req.user.id
     const requestId = req.params.reqId
-    const {action} = req.body //action può essere accepted, rejected o canceled
+    //action può essere accepted, rejected o canceled. Alias text serve quando il portale manda richiesta ad un utente fuori
+    //e gli chiede se vuole diventare membro. Contemporaneamente se non è già fullUser, diventa fullUser, quindi mentre accetta deve
+    // fornire una stringa nella quale c'è l'alias
+    const {action, aliasText} = req.body
     try{
         //controllo sul body
         if(!action||!["accepted", "rejected", "canceled"].includes(action)) throw new HttpError('Action not valid!',400)
@@ -34,13 +37,24 @@ async function actionRequest(req, res, next) {
 
         //gestione richieste portali
         if(request.type==="portal.addMember"){
-            if(action==="accepted"){
+            if(action==="accepted"){const userFull=await  FullUser.findOne({basicCorrespondent: user._id});
+                if(!userFull){
+                    const fullUserByAlias=await FullUser.findOne({alias:aliasText})
+                    if(fullUserByAlias)throw new HttpError("Alias already in use. Choose another alias.",409)
+
+                    await FullUser.create({
+                        basicCorrespondent:user._id,
+                        alias:aliasText,
+                    })
+
+                }
                 const portal = await Portal.findById(request.extra)
                 portal.members.push(user._id)
                 await portal.save()
-
                 user.portals.push(portal._id)
                 await user.save()
+
+
             }
         } else if(request.type==="portal.requestToAccess"){
             const portal = await Portal.findById(request.extra)
@@ -51,6 +65,12 @@ async function actionRequest(req, res, next) {
                 await portal.save()
 
                 const user2 = await BasicUser.findById(request.sender)
+                if(request.alias){
+                    await FullUser.create({
+                        basicCorrespondent: user2._id,
+                        alias: request.alias,
+                    })
+                }
                 user2.portals.push(portal._id)
                 await user2.save()
             }
@@ -156,7 +176,7 @@ async function actionRequest(req, res, next) {
         }
 
         //per le tipologie che non sono gestite da questa funzione
-        if(request.type===("collaboration.addUser"||"collaboration.requestToPortal"||"portal.requestToLinkExposition"||"portal.delete"||"user.selfDeleteRequest")&&action!=='canceled'){
+        if(request.type===("collaboration.addUser"||"collaboration.requestToPortal"||"portal.requestToLinkExposition"||"portal.delete"||"user.selfDeleteRequest"||"portal.create"||"group.create")&&action!=='canceled'){
             throw new HttpError('This function does not accept/reject this type of request',409)
         }
 

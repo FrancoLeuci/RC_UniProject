@@ -316,6 +316,7 @@ async function resetPassword(req, res, next){
 async function requestToBecomePortalMember(req, res, next){
     const userId = req.user.id
     const portalId = req.params.portalId
+    const {aliasName} = req.body;
     try{
         const portal = await Portal.findById(portalId)
         if(!portal){
@@ -323,7 +324,6 @@ async function requestToBecomePortalMember(req, res, next){
         }
 
         if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} not accept request`,409)
-
         const user = await BasicUser.findById(userId)
 
         const existingRequest = await Request.findOne({
@@ -341,13 +341,29 @@ async function requestToBecomePortalMember(req, res, next){
             throw new HttpError("You are already a member of the portal",409)
         }
 
-        await Request.create({
-            sender: user._id,
-            receiver: portal._id,
-            type: 'portal.requestToAccess',
-            content: `${user.realName} want to became a member of ${portal.name}`,
-            extra: portal._id
-        })
+        const isFull = await FullUser.findOne({basicCorrespondent: user._id})
+        if(!isFull){
+            if(!aliasName) throw new HttpError('Alias field is required',400)
+            const isUnique = await FullUser.findOne({alias: aliasName})
+            if(isUnique) throw new HttpError('Alias already in use',409)
+
+            await Request.create({
+                sender: user._id,
+                receiver: portal._id,
+                type: 'portal.requestToAccess',
+                content: `${user.realName} want to became a member of ${portal.name}`,
+                extra: portal._id,
+                alias: aliasName
+            })
+        } else {
+            await Request.create({
+                sender: user._id,
+                receiver: portal._id,
+                type: 'portal.requestToAccess',
+                content: `${user.realName} want to became a member of ${portal.name}`,
+                extra: portal._id
+            })
+        }
 
         res.status(201).json({ok: true, message: "Request send successfully"})
     }catch(err){
@@ -687,5 +703,118 @@ async function leaveGroup(req,res,next){
     }
 }
 
+async function requestToCreatePortal(req, res, next){
+    //adminsId è un array di BasicUser.id
+    const userId = req.user.id
+    const {name, description, adminsId} = req.body;
+    try{
+        if(!name || !description || adminsId.length<1){
+            throw new HttpError('All fields are required',400)
+        }
+
+        //TODO TEST
+        await Promise.all(adminsId.map(async adminId=>{
+            const user=await BasicUser.findById(adminId);
+            if(!user)throw new HttpError("One of the users in the admin list was not found.",404)
+        }))
+
+        adminsId.push(userId)
+
+        const portalByName = await Portal.findOne({name: name})
+        if(portalByName) throw new HttpError('Name already used',400)
+
+        //una richiesta per volta, per lo stesso portale
+        const existingRequest = await Request.findOne({
+            sender: userId,
+            type: 'portal.create',
+            "formFields.title": name,
+            "formFields.description": description,
+        });
+
+        if (existingRequest) {
+            throw new HttpError("Request alredy sent.", 409);
+        }
+
+        const superAdminList=await BasicUser.find({role:"super-admin"})
+        if(superAdminList.length===0)throw new HttpError("Can't request to create the portal. There are no superAdmins available at the moment. Contact the website owner. ",418)
+
+        const user = await BasicUser.findById(userId)
+
+        await Promise.all(superAdminList.map(async superAdmin=>
+            await Request.create({
+                sender: userId,
+                receiver: superAdmin._id,
+                type: 'portal.create',
+                content: `${user.realName} has requested to create a portal.`,
+            })
+        ))
+
+        res.status(201).json({ok: true, message: "Request sent successfully"})
+
+    }catch(err){
+        next(err)
+    }
+}
+
+//TODO test
+async function requestToCreateGroup(req, res, next){
+    //adminsId è un array di BasicUser.id
+    const userId = req.user.id
+    const portalId=req.params.portal //id del portale nei parametri
+    const {title, description, adminsId} = req.body;
+    try{
+        const user = await BasicUser.findById(userId)
+        if(user.portals.includes(portalId)){
+            const portal = await Portal.findById(portalId);
+            if(portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
+        } else {
+            throw new HttpError('You are Not Authorized - you are not a member of the portal',401)
+        }
+
+        const userFull=await FullUser.findOne({basicCorrespondent:userId})
+        if(!userFull) throw new HttpError("You can't create a group since you don't have a full account. ",403)
+        if(!portalId) throw new HttpError("Can't find portal Id in request parameters.")
+        const portal=await Portal.findById(portalId)
+        if(!portal) throw new HttpError("Portal not found.",404)
+        if(!title || !description || adminsId.length<1){
+            throw new HttpError('All fields are required',400)
+        }
+
+        //TODO TEST
+        await Promise.all(adminsId.map(async adminId=>{
+            const user=await FullUser.findOne({basicCorrespondent: adminId});
+            if(!user)throw new HttpError("One of the users in the admin list doesn't have a full Account.",404)
+        }))
+
+        adminsId.push(userId)
+
+        //una richiesta per volta, per lo stesso portale
+        //!IMPORTANT controlla che non ci siano richieste per lo stesso portale di creazione di gruppi con lo stesso titolo e description
+        const existingRequest = await Request.findOne({
+            type: 'group.create',
+            "formFields.title": title,
+            "formFields.description": description,
+            receiver:portal._id
+        });
+
+        if (existingRequest) {
+            throw new HttpError("Request alredy sent.", 409);
+        }
+
+        await Request.create({
+                sender: userFull.basicCorrespondent,
+                receiver: portal._id,
+                type: 'portal.create',
+                content: `${userFull.alias} has requested to create a portal.`,
+        })
+
+        res.status(201).json({ok: true, message: "Request sent successfully."})
+
+    }catch(err){
+        next(err)
+    }
+}
+
 module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
-    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup}
+    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup, requestToCreatePortal,
+    requestToCreateGroup}

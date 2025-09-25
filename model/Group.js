@@ -17,7 +17,7 @@ const FullUser = require("./FullUser");
 const Portal = require("./Portal");
 const {Image} = require("./Media");
 
-//TODO: chiedere se inserire un'immagine come copertina del gruppo o se è superfluo
+
 
 const groupSchema = new mongoose.Schema({
     title: {
@@ -27,12 +27,6 @@ const groupSchema = new mongoose.Schema({
     description: {
         type: String,
         required: true
-    },
-    visibility: {
-        type: String,
-        required: true,
-        enum: ['private','website','public'],
-        default: 'private'
     },
     admins: [{ //possono essere scelti solo dai portal_admin,
         type: mongoose.Schema.Types.ObjectId,
@@ -48,14 +42,7 @@ const groupSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Portal"
     },
-    picture: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: Image
-    },
 
-
-    //TODO: CHIEDERE COSA SI INTENDE PER GRUPPO IN FUNZIONE DELL'ESPOSIZIONE.
-    //io posso creare un'expo e condividerla con un gruppo, ma il gruppo cosa può fare?
     expositions:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: Exposition

@@ -15,14 +15,9 @@
    8)Testare le funzioni create tra ieri ed oggi :( borgodio
 
 
-Da chiedere:
+Da fare:
 
-Il superadmin può vedere qualsiasi esposizione?
+chiedere se superadmin può vedere/fare tutto (tranne pubblicare expositions)
+Nel caso in get Groups, get Portals, get Expositions (pubblicate)
 
-Perchè i salmoni nuotano controcorrente?
 
-Cosa sono i gruppi rispetto alle collab (e alle expositions)?ù
-
-Group admin: il primo viene deciso in fase di creazione gruppo dal portal admin
-
-Sistemare e capire funzioni di response e request per creazione di gruppi e portali (adminC e sAdminC)

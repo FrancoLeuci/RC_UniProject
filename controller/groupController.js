@@ -144,12 +144,12 @@ async function removeMember(req, res, next){
         notification = await Notification.findOne({receiver: group._id})
         const memberToRemove = await BasicUser.findById(memberToRemoveId)
         if(notification){
-            notification.backlog.push(`${memberToRemove.realName} is removed from the group`)
+            notification.backlog.push(`${memberToRemove.realName} has been removed from the group`)
             await notification.save()
         } else {
             await Notification.create({
                 receiver: group._id,
-                backlog: `${memberToRemove.realName} is removed from the group`
+                backlog: `${memberToRemove.realName} has been removed from the group`
             })
         }
 
@@ -161,7 +161,7 @@ async function removeMember(req, res, next){
 
 //eseguibile in base alla visibilità
 async function getGroup(req, res, next){
-    const {userId} = req.body;
+    const userId = req.user.id;
     const groupId = req.params.grId
     try{
         const group = await Group.findById(groupId)
@@ -169,26 +169,13 @@ async function getGroup(req, res, next){
             throw new HttpError('Group not found', 404)
         }
 
+        const portal = await Portal.findById(group.portal)
 
-        if(group.visibility === 'private'){
-            if(!userId) throw new HttpError('Please, login',400)
-
-            const isMember = group.members.includes(userId)
-            if(!isMember){
-                let isAdmin = group.admins.includes(userId)
-                if(!isAdmin){
-                    const portal = await Portal.findById(group.portal)
-                    isAdmin = portal.admins.includes(userId)
-                    if(!isAdmin) throw new HttpError('You are not Authorized',401)
-                }
-            }
-            return res.status(200).json({ok: true, data: group})
-        } else if (group.visibility === 'website'){
-            if(!userId) throw new HttpError('Please, login',400)
-
-            const isUser = await BasicUser.findById(userId)
-            if(!isUser.verified) throw new HttpError('You are not Authorized',401)
-            return res.status(200).json({ok: true, data: group})
+        if(!portal.admins.includes(userId)){
+            const fullUser = await FullUser.findOne({basicCorrespondent: userId})
+            const isAdmin = group.admins.includes(fullUser._id)
+            const isMember = group.members.includes(fullUser._id)
+            if(!isAdmin&&!isMember) throw new HttpError('You are Not Authorized',401)
         }
 
         res.status(200).json({ok: true, data: group})
@@ -196,5 +183,66 @@ async function getGroup(req, res, next){
         next(err)
     }
 }
+//funzione grazie alla quale il group admin cancella il gruppo
+//passa per il middleware dei gruppi che controlla se user che fa richiesta è group admin e restituisce il group
 
-module.exports = {groupEdit, addAdmin, addMember, getGroup, removeMember}
+async function groupAdminGroupDelete(req,res,next){
+    const group = req.group;
+    try{
+        await group.populate("members").populate("admins")
+
+        await Promise.all(group.members.map(async member=>{
+            member.groups.splice(member.groups.indexOf(group._id),1)
+            await member.save()
+
+            const notification = await Notification.findOne({receiver:member.basicCorrespondent})
+              if(notification){
+                notification.backlog.push(`${group.title} has been deleted.`)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: member.basicCorrespondent,
+                    backlog: `${group.title} has been deleted.`
+                })
+            }
+        }))
+
+        await Promise.all(group.admins.map(async admin=>{
+            admin.groups.splice(admin.groups.indexOf(group._id),1)
+            await admin.save()
+
+            const notification = await Notification.findOne({receiver:admin.basicCorrespondent})
+            if(notification){
+                notification.backlog.push(`${group.title} has been deleted.`)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: admin.basicCorrespondent,
+                    backlog: `${group.title} has been deleted.`
+                })
+            }
+        }))
+
+
+        const notification = await Notification.findOne({receiver:group.portal})
+        if(notification){
+            notification.backlog.push(`${group.title} has been deleted.`)
+            await notification.save()
+        } else {
+            await Notification.create({
+                receiver: group.portal,
+                backlog: `${group.title} has been deleted.`
+            })
+        }
+
+        await Group.findByIdAndDelete(group._id)
+
+        res.send('Group eliminated')
+
+    }catch(err){
+        next(err)
+    }
+}
+
+
+module.exports = {groupEdit, addAdmin, addMember, getGroup, removeMember, groupAdminGroupDelete}

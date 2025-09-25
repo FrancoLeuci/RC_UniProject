@@ -1,5 +1,7 @@
 const express = require('express');
-const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup} = require('../controller/userController')
+const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
+    requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup,
+    requestToCreatePortal,requestToCreateGroup} = require('../controller/userController')
 const {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups} = require('../controller/profileController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
@@ -23,9 +25,11 @@ router.put('/edit', verifyToken, editProfile)
 router.put('/editPassword', verifyToken, editPassword)
 
 router.put('/portalRequest/:portalId', verifyToken, requestToBecomePortalMember)
+router.put('/portalRequest/create', verifyToken, requestToCreatePortal)
 
 router.get('/groups', verifyToken, getGroups)
 router.put('/groupRequest/:grId', verifyToken, requestToBecomeGroupMember)
+router.put('/groupRequest/create/:portal', verifyToken, requestToCreatePortal)
 
 // presi da pageRoutes
 router.get('/users', getAllUsers);
