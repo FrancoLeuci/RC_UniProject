@@ -8,7 +8,7 @@ const Group = require("../model/Group");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
-async function getProfile(req, res, next) {
+async function getMyProfile(req, res, next) {
     const userId = req.user.id;
 
     try{
@@ -17,8 +17,6 @@ async function getProfile(req, res, next) {
         res.status(200).json({ok: true, data: user});
     }catch(err){
         next(err);
-        //console.log(err);
-        //return res.status(500).json({error: 'Internal server error'});
     }
 }
 
@@ -60,8 +58,6 @@ async function editProfile(req, res, next){
 
     }catch(err){
         next(err);
-        //console.error(err.message);
-        //res.status(500).json({error: "Internal Server Error"})
     }
 }
 
@@ -91,8 +87,6 @@ async function editSettings(req,res,next){
 
     }catch(err){
         next(err)
-        //console.error(err.message);
-        //res.status(500).json({error: "Internal Server Error"})
     }
 
 }
@@ -107,16 +101,13 @@ async function editPassword(req, res, next){
 
         if(!newPass){
             throw new HttpError("Password is required",400)
-            //return res.status(400).json({message: 'Missing new password.'})
         }
         if(!conNewPass){
             throw new HttpError("Confirm Password is required",400)
-            //return res.status(400).json({message: 'Missing confirm password.'})
         }
 
         if(newPass!==conNewPass){
             throw new HttpError("Confirm Password doesn't match.",400)
-            //return res.status(400).json({error: "Confirm password doesn't match."})
         }
 
         user.password = newPass;
@@ -126,8 +117,6 @@ async function editPassword(req, res, next){
         res.status(200).json({ok: true, message: 'Password changed successfully.'})
     } catch(err){
         next(err)
-        //console.error(err.message);
-        //res.status(500).json({error: "Internal Server Error. "})
     }
 }
 
@@ -138,8 +127,6 @@ async function getAllUsers(req, res, next){
         res.status(200).json({ok: true, users})
     }catch(err){
         next(err)
-        //console.error(err.message)
-        //res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
@@ -177,13 +164,12 @@ async function getUserView(req, res, next){
         res.status(200).json({ok: true, userInfo, viewSets})
     }catch(err){
         next(err)
-        //res.status(500).json({error: err, message: 'Internal Error Server'})
     }
 }
 
 async function getUserWithPublic(req, res, next){
     try{
-        const fullUsers = await FullUser.find({hasPublicObjects: true})
+        const fullUsers = await FullUser.find({"expositions.0":{exists:true}})
         let basicUsers = await Promise.all(
             fullUsers.map(async user => {
                 await BasicUser.findById(user.basicCorrespondent)
@@ -215,4 +201,25 @@ async function getGroups(req, res, next){
     }
 }
 
-module.exports = {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups};
+//
+async function getProfile(req, res, next){
+    const otherProfileId=req.params.id
+    const {userId} = req.body
+    try{
+        const profile = await BasicUser.findById(otherProfileId)
+        if(profile.hide){
+            if(userId){
+                const user = await BasicUser.findById(userId)
+                if(user.role==='super-admin'){
+                    return res.json(profile)
+                } else {throw new HttpError("This user's profile is private. ",403)}
+            }else{
+                throw new HttpError("This user's profile is private. ",403)
+            }
+        }
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {getMyProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups, getProfile};

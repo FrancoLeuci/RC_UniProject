@@ -1,8 +1,8 @@
 const express = require('express')
 
-const {edit, getAllInfo, getPortals} = require('../controller/portals/portalController')
+const {edit, getAllInfo, getPortals, getGroups} = require('../controller/portals/portalController')
 const {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
-    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition, getGroups} = require('../controller/portals/adminController')
+    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition} = require('../controller/portals/adminController')
 
 const {verifyToken} = require('../middleware/authMiddleware')
 const {portalAdminCheck} = require('../middleware/p_adminMiddleware')

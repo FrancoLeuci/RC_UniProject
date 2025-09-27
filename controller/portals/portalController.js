@@ -93,8 +93,6 @@ async function getAllInfo(req, res, next){
         res.status(200).json({ok: true, portal})
     }catch(err){
         next(err)
-        //console.error(err.message)
-        //res.status(500).json({error: 'Internal Server Error'})
     }
 }
 
@@ -105,8 +103,6 @@ async function getPortals(req, res, next){
         res.status(200).json({ok: true, portals})
     }catch(err){
         next(err)
-        //console.error(err.message)
-        //res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
@@ -117,7 +113,8 @@ async function getGroups(req, res, next){
         const portalGroups = await Group.find({portal: portalId})
 
         const portal = await Portal.findById(portalId)
-        if(portal.admins.includes(userId)){
+        const isSuperAdmin = const BasicUser.findById(userId)
+        if(portal.admins.includes(userId)||isSuperAdmin.role==='super-admin'){
             return res.status(200).json(portalGroups)
         }
 

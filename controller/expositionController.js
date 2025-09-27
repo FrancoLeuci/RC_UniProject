@@ -388,6 +388,9 @@ async function getExposition(req,res,next){
             if(!userId) throw new HttpError('User Id required',400)
             const user = await BasicUser.findById(userId)
             if(!user) throw new HttpError('User not found',404)
+
+            if(user.role==='super-admin') return res.status(200).json({expo})
+
             const userFull = await FullUser.findOne({basicCorrespondent: userId})
             const isAuthor = expo.authors.find(a => a.userId.equals(userFull._id))
             if(expo.shareStatus==="private"&&isAuthor){

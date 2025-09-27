@@ -221,10 +221,9 @@ async function removeFromPortal(req,res,next){
 
 async function getPortalMembers(req, res, next){
     const portal = req.portal
-
     try{
         const users = await Promise.all(portal.members.map(member => BasicUser.findById(member)))
-
+        
         res.status(200).json({ok: true, data: users});
 
     }catch(err){
@@ -232,33 +231,45 @@ async function getPortalMembers(req, res, next){
     }
 }
 
-
-
 async function createGroup(req, res, next){
     const portal = req.portal
+    //adminsId sono relativi ai basicUser
     const {title, description, adminsId} = req.body;
 
     try{
         //controllo sul body
         if(!title||!description||adminsId.length<1) throw new HttpError('All fields are required',400)
         //TODO TEST
+        const adminsFullId = []
         await Promise.all(adminsId.map(async adminId=>{
             const user=await FullUser.findOne({basicCorrespondent: adminId});
             if(!user)throw new HttpError("One of the users in the admin list has not been upgraded to Full User and can't be part of the group. Check the list and try again",404)
+            adminsFullId.push(user._id)
         }))
-
-        const adminFullAccount = await FullUser.findOne({basicCorrespondent: adminId})
 
         const group = await Group.create({
             title,
             description,
             portal: portal._id,
-            admins: [adminFullAccount._id]
+            admins: [adminsFullId]
         })
 
+        await Promise.all(adminsId.map(async admin => {
+            const fullUser = await FullUser.findOne({basicCorrespondent: admin})
+            fullUser.groups.push(group._id)
+            await fullUser.save()
 
-        adminFullAccount.groups.push(group._id)
-        await adminFullAccount.save()
+            const notification = await Notification.findOne({receiver: admin})
+            if(notification){
+                notification.backlog.push(`Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `)
+                await notification.save()
+            } else {
+                await Notification.create({
+                    receiver: admin,
+                    backlog: `Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `
+                })
+            }
+        }))
 
         res.status(201).json({ok: true, message:'Group create successfully'})
     }catch(err){
@@ -543,7 +554,7 @@ async function createGroupResponse(req,res,next){
                     notification.backlog.push(`Portal-admin has rejected your request with the following reason: ${rejectText}`)
                     await notification.save()
                 } else {
-                    notification.backlog.push(`Portal-admin has rejected your request to create a portal. `)
+                    notification.backlog.push(`Portal-admin has rejected your request to create a group. `)
                     await notification.save()
                 }
 
@@ -556,7 +567,7 @@ async function createGroupResponse(req,res,next){
                 } else {
                     await Notification.create({
                         receiver: request.sender,
-                        backlog: `Super-admin has rejected your request to create a portal. `
+                        backlog: `Portal-admin has rejected your request to create a group. `
                     })
                 }
             }

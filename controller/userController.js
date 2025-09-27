@@ -703,6 +703,15 @@ async function leaveGroup(req,res,next){
     }
 }
 
+function generaSequenza() {
+    let sequenza = [];
+    for (let i = 0; i < 7; i++) {
+        let numero = Math.floor(Math.random() * 9) + 1; // da 1 a 9
+        sequenza.push(numero);
+    }
+    return sequenza;
+}
+
 async function requestToCreatePortal(req, res, next){
     //adminsId è un array di BasicUser.id
     const userId = req.user.id
@@ -715,7 +724,32 @@ async function requestToCreatePortal(req, res, next){
         //TODO TEST
         await Promise.all(adminsId.map(async adminId=>{
             const user=await BasicUser.findById(adminId);
-            if(!user)throw new HttpError("One of the users in the admin list was not found.",404)
+            if(!user)throw new HttpError(`Search for id: ${adminId} didn't bring up any account.`,404)
+            const userFull=await FullUser.findOne({basicCorrespondent:user._id})
+            if(!userFull){
+
+                const randSequence=generaSequenza();
+                const tempAlias=`temp${randSequence}`;
+
+                console.log(tempAlias)
+
+                await FullUser.create({
+                    basicCorrespondent: adminId,
+                    alias: tempAlias
+                })
+
+                const notification = await Notification.findOne({receiver: adminId})
+                if (notification) {
+                    notification.backlog.push(`Your account has been promoted to full, modify your alias. `)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: adminId,
+                        backlog: `Your account has been promoted to full, modify your alias. `
+                    })
+                }
+
+            }
         }))
 
         adminsId.push(userId)

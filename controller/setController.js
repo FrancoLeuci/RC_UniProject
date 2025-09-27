@@ -123,7 +123,7 @@ async function removeFiles(req, res, next){
         }
         const mediaToRemove=setToModify.mediaList.find(media => String(media)===mediaId);
         if(!mediaToRemove){
-            throw new HttpError("Media you are trying to cancel is not in the media set already.",400)
+            throw new HttpError("Media you are trying to cancel is not in the media set.",400)
             //return res.status(404).json({ok:false,message:"Media you are trying to cancel is not in the media set already. "})
         }
         const permission=setToModify.otherUsersPermissions.includes({user:new mongoose.Types.ObjectId(userId),canEditSet:true})
@@ -160,28 +160,18 @@ async function getSet(req,res,next){
             perm => perm.user.toString() === userId
         );
 
+        const isSuperAdmin = await BasicUser.findById(userId)
 
-        if(istheCreator||hasPermission){
+        if(istheCreator||hasPermission||isSuperAdmin.role==='super-admin'){
             const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
             return res.json({ok:true,setMedias:mediaToShow})
         }
-        const userInfo=await basicUser.findById(userId);
-        const userPortals=userInfo.portals;
 
         //per ogni elemento del primo itera sugli elementi del secondo
         //(per ogni portale con cui è condivide il set controlla se sta nella lista
         //di portali dell'utente, ha senso)
 
-        const isShared = setToShow.portalsSharedWith.some(
-            port=> userPortals.some(userport=>String(port)===(String(userport)))
-        );
-
-        if(isShared){
-            const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
-            return res.json({ok: true, setMedias: mediaToShow})
-        }
-
-        throw new HttpError("Not Authorized. Only authorized members can access to the set.",401)
+        throw new HttpError("Not Authorized. Only authorized members can access this set.",401)
         //res.status(401).json({message:"Not authorized. Only authorized members can access the set. "})
     }catch(err){
         next(err)
