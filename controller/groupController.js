@@ -172,12 +172,12 @@ async function getGroup(req, res, next){
         const portal = await Portal.findById(group.portal)
         const isSuperAdmin = await BasicUser.findById(userId)
 
-        if(!portal.admins.includes(userId)){
+        if(!portal.admins.includes(userId)&&isSuperAdmin.role!=='super-admin'){
             const fullUser = await FullUser.findOne({basicCorrespondent: userId})
             if(!fullUser)throw new HttpError("You are Not Authorized to access this group's info.",403);
             const isAdmin = group.admins.includes(fullUser._id)
             const isMember = group.members.includes(fullUser._id)
-            if(!isAdmin&&!isMember&&!isSuperAdmin.role==='super-admin') throw new HttpError('You are Not Authorized',401)
+            if(!isAdmin&&!isMember) throw new HttpError('You are Not Authorized',401)
         }
 
         res.status(200).json({ok: true, data: group})
@@ -191,7 +191,7 @@ async function getGroup(req, res, next){
 async function groupAdminGroupDelete(req,res,next){
     const group = req.group;
     try{
-        await group.populate("members").populate("admins")
+        await group.populate([{ path: "members" }, { path: "admins" }])
 
         await Promise.all(group.members.map(async member=>{
             member.groups.splice(member.groups.indexOf(group._id),1)

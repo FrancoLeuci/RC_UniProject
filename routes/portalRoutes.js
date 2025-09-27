@@ -2,7 +2,7 @@ const express = require('express')
 
 const {edit, getAllInfo, getPortals, getGroups} = require('../controller/portals/portalController')
 const {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
-    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition} = require('../controller/portals/adminController')
+    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition, createGroupResponse} = require('../controller/portals/adminController')
 
 const {verifyToken} = require('../middleware/authMiddleware')
 const {portalAdminCheck} = require('../middleware/p_adminMiddleware')
@@ -30,6 +30,7 @@ router.put('/:portal/removeExposition/:expo', verifyToken, portalAdminCheck, rem
 router.post('/:portal/group/create', verifyToken, portalAdminCheck, createGroup)
 router.delete('/:portal/group/:grId/delete', verifyToken, portalAdminCheck, deleteGroup)
 router.get('/:portal/groups', verifyToken, getGroups)
+router.put('/:portal/groupRespond/:rqId',verifyToken,portalAdminCheck,createGroupResponse)
 
 //visualizzazione dei portali nel sito
 router.get('/', getPortals);

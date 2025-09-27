@@ -1,6 +1,7 @@
 const Portal = require("../../model/Portal");
 const Group = require("../../model/Group");
 const FullUser = require("../../model/FullUser");
+const BasicUser = require('../../model/BasicUser')
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -113,8 +114,10 @@ async function getGroups(req, res, next){
         const portalGroups = await Group.find({portal: portalId})
 
         const portal = await Portal.findById(portalId)
-        const isSuperAdmin = const BasicUser.findById(userId)
+        const isSuperAdmin = await BasicUser.findById(userId)
+        console.log(portal.admins.includes(userId))
         if(portal.admins.includes(userId)||isSuperAdmin.role==='super-admin'){
+            console.log("Hello")
             return res.status(200).json(portalGroups)
         }
 

@@ -223,7 +223,7 @@ async function getPortalMembers(req, res, next){
     const portal = req.portal
     try{
         const users = await Promise.all(portal.members.map(member => BasicUser.findById(member)))
-        
+
         res.status(200).json({ok: true, data: users});
 
     }catch(err){
@@ -244,6 +244,7 @@ async function createGroup(req, res, next){
         await Promise.all(adminsId.map(async adminId=>{
             const user=await FullUser.findOne({basicCorrespondent: adminId});
             if(!user)throw new HttpError("One of the users in the admin list has not been upgraded to Full User and can't be part of the group. Check the list and try again",404)
+            if(!portal.admins.includes(adminId)&&!portal.members.includes(adminId)) throw new HttpError("One of the users in the admin list is not a member/admin of the portal",400)
             adminsFullId.push(user._id)
         }))
 
@@ -527,8 +528,8 @@ async function createGroupResponse(req,res,next){
             const group = await Group.create({
                 title:request.formFields.title,
                 description:request.formFields.description,
-                admins: [request.formFields.adminList],
-                portal: request.extra
+                admins: request.formFields.adminList,
+                portal: request.receiver
             })
 
             await Promise.all(request.formFields.adminList.map(async admin => {

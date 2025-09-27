@@ -703,19 +703,10 @@ async function leaveGroup(req,res,next){
     }
 }
 
-function generaSequenza() {
-    let sequenza = [];
-    for (let i = 0; i < 7; i++) {
-        let numero = Math.floor(Math.random() * 9) + 1; // da 1 a 9
-        sequenza.push(numero);
-    }
-    return sequenza;
-}
-
 async function requestToCreatePortal(req, res, next){
     //adminsId è un array di BasicUser.id
     const userId = req.user.id
-    const {name, description, adminsId} = req.body;
+    const {name, description, adminsId, aliasName} = req.body;
     try{
         if(!name || !description || adminsId.length<1){
             throw new HttpError('All fields are required',400)
@@ -725,31 +716,6 @@ async function requestToCreatePortal(req, res, next){
         await Promise.all(adminsId.map(async adminId=>{
             const user=await BasicUser.findById(adminId);
             if(!user)throw new HttpError(`Search for id: ${adminId} didn't bring up any account.`,404)
-            const userFull=await FullUser.findOne({basicCorrespondent:user._id})
-            if(!userFull){
-
-                const randSequence=generaSequenza();
-                const tempAlias=`temp${randSequence}`;
-
-                console.log(tempAlias)
-
-                await FullUser.create({
-                    basicCorrespondent: adminId,
-                    alias: tempAlias
-                })
-
-                const notification = await Notification.findOne({receiver: adminId})
-                if (notification) {
-                    notification.backlog.push(`Your account has been promoted to full, modify your alias. `)
-                    await notification.save() //sta qui
-                } else {
-                    await Notification.create({
-                        receiver: adminId,
-                        backlog: `Your account has been promoted to full, modify your alias. `
-                    })
-                }
-
-            }
         }))
 
         adminsId.push(userId)
@@ -762,7 +728,7 @@ async function requestToCreatePortal(req, res, next){
             sender: userId,
             type: 'portal.create',
             "formFields.title": name,
-            "formFields.description": description,
+            "formFields.description": description
         });
 
         if (existingRequest) {
@@ -773,15 +739,37 @@ async function requestToCreatePortal(req, res, next){
         if(superAdminList.length===0)throw new HttpError("Can't request to create the portal. There are no superAdmins available at the moment. Contact the website owner. ",418)
 
         const user = await BasicUser.findById(userId)
+        const isFull = await FullUser.findOne({basicCorrespondent: userId})
+        if(!isFull){
+            if(!aliasName) throw new HttpError('Alias field is required',400)
+            const isUnique = await FullUser.findOne({alias: aliasName})
+            if(isUnique) throw new HttpError('Alias already in use',409)
 
-        await Promise.all(superAdminList.map(async superAdmin=>
-            await Request.create({
-                sender: userId,
-                receiver: superAdmin._id,
-                type: 'portal.create',
-                content: `${user.realName} has requested to create a portal.`,
-            })
-        ))
+            await Promise.all(superAdminList.map(async superAdmin => {
+                await Request.create({
+                    sender: userId,
+                    receiver: superAdmin._id,
+                    type: 'portal.create',
+                    content: `${user.realName} has requested to create a portal.`,
+                    "formFields.title": name,
+                    "formFields.description": description,
+                    "formFields.adminList": adminsId,
+                    alias: aliasName
+                })
+            }))
+        } else {
+            await Promise.all(superAdminList.map(async superAdmin=> {
+                await Request.create({
+                    sender: userId,
+                    receiver: superAdmin._id,
+                    type: 'portal.create',
+                    content: `${user.realName} has requested to create a portal.`,
+                    "formFields.title": name,
+                    "formFields.description": description,
+                    "formFields.adminList": adminsId
+                })
+            }))
+        }
 
         res.status(201).json({ok: true, message: "Request sent successfully"})
 
@@ -807,7 +795,6 @@ async function requestToCreateGroup(req, res, next){
 
         const userFull=await FullUser.findOne({basicCorrespondent:userId})
         if(!userFull) throw new HttpError("You can't create a group since you don't have a full account. ",403)
-        if(!portalId) throw new HttpError("Can't find portal Id in request parameters.")
         const portal=await Portal.findById(portalId)
         if(!portal) throw new HttpError("Portal not found.",404)
         if(!title || !description || adminsId.length<1){
@@ -816,8 +803,9 @@ async function requestToCreateGroup(req, res, next){
 
         //TODO TEST
         await Promise.all(adminsId.map(async adminId=>{
-            const user=await FullUser.findOne({basicCorrespondent: adminId});
-            if(!user)throw new HttpError("One of the users in the admin list doesn't have a full Account.",404)
+            const isMember = portal.members.includes(adminId)
+            const isAdmin = portal.admins.includes(adminId)
+            if(!isMember&&!isAdmin)throw new HttpError("One of the users in the admin list is not a member or an admin of the portal.",404)
         }))
 
         adminsId.push(userId)
@@ -825,6 +813,7 @@ async function requestToCreateGroup(req, res, next){
         //una richiesta per volta, per lo stesso portale
         //!IMPORTANT controlla che non ci siano richieste per lo stesso portale di creazione di gruppi con lo stesso titolo e description
         const existingRequest = await Request.findOne({
+            sender: userId,
             type: 'group.create',
             "formFields.title": title,
             "formFields.description": description,
@@ -836,10 +825,13 @@ async function requestToCreateGroup(req, res, next){
         }
 
         await Request.create({
-                sender: userFull.basicCorrespondent,
-                receiver: portal._id,
-                type: 'portal.create',
-                content: `${userFull.alias} has requested to create a portal.`,
+            sender: userId,
+            receiver: portal._id,
+            type: 'group.create',
+            content: `${userFull.alias} has requested to create a portal.`,
+            "formFields.title": title,
+            "formFields.description": description,
+            "formFields.adminList": adminsId
         })
 
         res.status(201).json({ok: true, message: "Request sent successfully."})

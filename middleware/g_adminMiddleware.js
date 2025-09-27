@@ -12,7 +12,7 @@ async function groupAdminCheck(req,res,next){
             throw new Error("fullError")
         }
         const group = await Group.findById(groupId)
-        const isAdminG= group.admins.includes(adminFull._Id);
+        const isAdminG= group.admins.includes(adminFull._id);
 
         if(!group){
             throw new Error("groupError");

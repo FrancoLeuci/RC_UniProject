@@ -54,6 +54,13 @@ async function editProfile(req, res, next){
         }
 
         await user.save()
+
+        const fullUser = await FullUser.findOne({basicCorrespondent: user._id})
+        if(fullUser&&body.alias){
+            fullUser.alias = body.alias
+            await fullUser.save()
+        }
+
         res.status(200).json({ok: true, message: 'Profile update'})
 
     }catch(err){
@@ -169,11 +176,9 @@ async function getUserView(req, res, next){
 
 async function getUserWithPublic(req, res, next){
     try{
-        const fullUsers = await FullUser.find({"expositions.0":{exists:true}})
+        const fullUsers = await FullUser.find({"expositions.0":{$exists:true}})
         let basicUsers = await Promise.all(
-            fullUsers.map(async user => {
-                await BasicUser.findById(user.basicCorrespondent)
-            })
+            fullUsers.map(async user => await BasicUser.findById(user.basicCorrespondent))
         )
 
         res.json({ok: true, basicUsers})
@@ -217,6 +222,8 @@ async function getProfile(req, res, next){
                 throw new HttpError("This user's profile is private. ",403)
             }
         }
+
+        res.status(200).json(profile)
     }catch(err){
         next(err)
     }

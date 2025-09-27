@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/add/:id', verifyToken, addSuperAdmin)
 router.delete('/deletePortal/:rqId', verifyToken, portalDeletionResponse)
-router.post('/createPortal', verifyToken, createPortalResponse)
+router.put('/createPortal/:rqId', verifyToken, createPortalResponse)
 router.delete('/deleteUser/:rqId', verifyToken, userDeletionResponse)
 router.post('/fullAccount/:rqId', verifyToken, fullAccountResponse)
 

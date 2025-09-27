@@ -1,7 +1,7 @@
 const Set = require("../model/Set")
 const {Media} = require("../model/Media")
 const mongoose=require("mongoose")
-const basicUser=require("../model/BasicUser");
+const BasicUser=require("../model/BasicUser");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
