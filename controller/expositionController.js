@@ -17,7 +17,7 @@ async function createExposition(req,res,next){
     try{
         const isFull = await FullUser.findOne({basicCorrespondent: userId});
         if(!isFull){
-            throw new HttpError("You are not a Full User, so you can't create an Exposition.",403)
+            throw new HttpError("You are not a Full User, you can't create an Exposition.",403)
         }
 
         if(!title||!abstract||!copyright||!licence) throw new HttpError("All data specified are required.",400)

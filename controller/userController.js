@@ -33,20 +33,18 @@ const generateTokens=async (userID, roles)=>{
 
 async function emailSender (email, id, resetKey, next){
     try{
+
         // metodo della libreria googleapis per creare un client oAuth2 autorizzato
         const oAuth2Client = new google.auth.OAuth2(
             process.env.CLIENT_ID,
             process.env.CLIENT_S,
             process.env.REDIRECT_URI
         );
-
         // metodo per impostare le credenziale di autorizzazione
         oAuth2Client.setCredentials({
             refresh_token: process.env.OAUTH_REFRESH_TOKEN
         })
-
         const accessToken = await oAuth2Client.getAccessToken();
-
         // metodo per creare un oggetto Transport per l'invio dell'email
         const emailTransporter = nodemailer.createTransport({
             service: 'gmail',
@@ -114,7 +112,7 @@ async function register(req, res, next){
             //return res.status(400).json({message: 'Missing email address'})
         }
         if(!password){
-            throw new HttpError("Password is requierd",400)
+            throw new HttpError("Password is required",400)
             //return res.status(400).json({message: 'Missing password'})
         }
 
@@ -139,7 +137,7 @@ async function accountVerify(req, res, next){
     const id = req.params.id
 
     try{
-        // verifica che l'utente esista nel DBn
+        // verifica che l'utente esista nel DB
         const user = await BasicUser.findById(id)
         if(!user){
             throw new HttpError("User not Found",404)
@@ -323,7 +321,7 @@ async function requestToBecomePortalMember(req, res, next){
             throw new HttpError("Portal not found",404)
         }
 
-        if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} not accept request`,409)
+        if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} does not accept request`,409)
         const user = await BasicUser.findById(userId)
 
         const existingRequest = await Request.findOne({
@@ -763,6 +761,7 @@ async function requestToCreateGroup(req, res, next){
     const portalId=req.params.portal //id del portale nei parametri
     const {title, description, adminsId} = req.body;
     try{
+        if(!portalId) throw new HttpError("Can't find portal Id in request parameters.")
         const user = await BasicUser.findById(userId)
         if(user.portals.includes(portalId)){
             const portal = await Portal.findById(portalId);
@@ -773,7 +772,6 @@ async function requestToCreateGroup(req, res, next){
 
         const userFull=await FullUser.findOne({basicCorrespondent:userId})
         if(!userFull) throw new HttpError("You can't create a group since you don't have a full account. ",403)
-        if(!portalId) throw new HttpError("Can't find portal Id in request parameters.")
         const portal=await Portal.findById(portalId)
         if(!portal) throw new HttpError("Portal not found.",404)
         if(!title || !description || adminsId.length<1){
@@ -816,5 +814,5 @@ async function requestToCreateGroup(req, res, next){
 }
 
 module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
-    requestToBecomeGroupMember, findUserByName,deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup, requestToCreatePortal,
+    requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup, requestToCreatePortal,
     requestToCreateGroup}
