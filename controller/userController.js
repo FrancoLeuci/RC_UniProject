@@ -323,7 +323,7 @@ async function requestToBecomePortalMember(req, res, next){
             throw new HttpError("Portal not found",404)
         }
 
-        if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} not accept request`,409)
+        if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} does not accept request`,409)
         const user = await BasicUser.findById(userId)
 
         const existingRequest = await Request.findOne({
@@ -351,7 +351,7 @@ async function requestToBecomePortalMember(req, res, next){
                 sender: user._id,
                 receiver: portal._id,
                 type: 'portal.requestToAccess',
-                content: `${user.realName} want to became a member of ${portal.name}`,
+                content: `${user.realName} wants to become a member of ${portal.name}`,
                 extra: portal._id,
                 alias: aliasName
             })
@@ -360,12 +360,12 @@ async function requestToBecomePortalMember(req, res, next){
                 sender: user._id,
                 receiver: portal._id,
                 type: 'portal.requestToAccess',
-                content: `${user.realName} want to became a member of ${portal.name}`,
+                content: `${user.realName} wants to become a member of ${portal.name}`,
                 extra: portal._id
             })
         }
 
-        res.status(201).json({ok: true, message: "Request send successfully"})
+        res.status(201).json({ok: true, message: "Request sent successfully"})
     }catch(err){
         next(err)
     }
@@ -788,7 +788,7 @@ async function requestToCreateGroup(req, res, next){
         const user = await BasicUser.findById(userId)
         if(user.portals.includes(portalId)){
             const portal = await Portal.findById(portalId);
-            if(portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
+            if(portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized - you are an admin of the portal, use the API createGroup',401)
         } else {
             throw new HttpError('You are Not Authorized - you are not a member of the portal',401)
         }
