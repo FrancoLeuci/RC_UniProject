@@ -16,7 +16,7 @@ const Portal = require("../../model/Portal");
 
 //pending requests
 
-//TODO-domanda al prof: l'account creato dal portal_admin è già full o deve fare richiesta al super_admin?
+/*TODO-domanda al prof: l'account creato dal portal_admin è già full o deve fare richiesta al super_admin?
 async function newUser(req,res,next) {
     const portal=req.portal;
     const {email, name, surname, password} = req.body;
@@ -39,15 +39,14 @@ async function newUser(req,res,next) {
         //TODO: dato che abbiamo chiarito col prof che il nome non è univoco, serve questo controllo?
         //la mia idea è di fornire al front-end una lista di utenti con medesimo nome e se serve allora l'admin può inviare la richiesta con addToPortal
 
-        /*
+
         const alreadyUserByName = await BasicUser.find({realName: realName})
         if(alreadyUserByName){
             //lista completa utenti stesso nome
             return res.status(409).json({message:"Users with the same name already exist. ",usersWithSameName:alreadyUserByName})
-
         }
        TODO: chiedere al prof se è possibile mostrare una lista di utenti con lo stesso nome per poi chiedere se l'utente vuole creare lo stesso o meno
-         */
+
 
             const user = await BasicUser.create({
                 realName,
@@ -68,6 +67,7 @@ async function newUser(req,res,next) {
         //res.status(500).json({error: "Internal Server Error"});
     }
 }
+ */
 
 //TODO: quando un membro diviene reviewer deve rimanere nella lista dei membri del portale?
 async function addToPortal(req,res,next){
@@ -584,5 +584,5 @@ async function createGroupResponse(req,res,next){
 }
 
 
-module.exports = {newUser, addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
+module.exports = {addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
     removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition, createGroupResponse}
