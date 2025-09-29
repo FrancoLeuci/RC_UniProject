@@ -1,6 +1,7 @@
 const Portal = require("../../model/Portal");
 const Group = require("../../model/Group");
 const FullUser = require("../../model/FullUser");
+const BasicUser = require('../../model/BasicUser')
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -93,8 +94,6 @@ async function getAllInfo(req, res, next){
         res.status(200).json({ok: true, portal})
     }catch(err){
         next(err)
-        //console.error(err.message)
-        //res.status(500).json({error: 'Internal Server Error'})
     }
 }
 
@@ -105,8 +104,6 @@ async function getPortals(req, res, next){
         res.status(200).json({ok: true, portals})
     }catch(err){
         next(err)
-        //console.error(err.message)
-        //res.status(500).json({error: 'Internal Error Server'})
     }
 }
 
@@ -117,7 +114,10 @@ async function getGroups(req, res, next){
         const portalGroups = await Group.find({portal: portalId})
 
         const portal = await Portal.findById(portalId)
-        if(portal.admins.includes(userId)){
+        const isSuperAdmin = await BasicUser.findById(userId)
+        console.log(portal.admins.includes(userId))
+        if(portal.admins.includes(userId)||isSuperAdmin.role==='super-admin'){
+            console.log("Hello")
             return res.status(200).json(portalGroups)
         }
 

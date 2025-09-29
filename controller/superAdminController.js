@@ -200,6 +200,16 @@ async function portalDeletionResponse(req,res,next){
     }
 }
 
+//serve nella funzione createPortalResponse
+function generaSequenza() {
+    let sequenza = [];
+    for (let i = 0; i < 7; i++) {
+        let numero = Math.floor(Math.random() * 9) + 1; // da 1 a 9
+        sequenza.push(numero);
+    }
+    return sequenza;
+}
+
 //ci serve sapere come arriva la richiesta di creazione
 //FRONTEND dopo aver cliccato reject si fa uscire pop up un box di testo dove il super admin può scrivere il perchè sta rifiutando la richiesta
 async function createPortalResponse(req,res,next){
@@ -219,7 +229,7 @@ async function createPortalResponse(req,res,next){
             const portal = await Portal.create({
                 name:request.formFields.title,
                 description:request.formFields.description,
-                admins: [request.formFields.adminList]
+                admins: request.formFields.adminList
             })
 
             await Promise.all(request.formFields.adminList.map(async admin => {
@@ -227,6 +237,35 @@ async function createPortalResponse(req,res,next){
 
                 user.portals.push(portal._id)
                 await user.save()
+
+                const userFull=await FullUser.findOne({basicCorrespondent:admin})
+                if(!userFull){
+                    if(admin.equals(request.sender)){
+                        await FullUser.create({
+                            basicCorrespondent: admin,
+                            alias: request.alias
+                        })
+                    } else {
+                        const randSequence=generaSequenza();
+                        const tempAlias=`temp${randSequence}`;
+
+                        await FullUser.create({
+                            basicCorrespondent: admin,
+                            alias: tempAlias
+                        })
+
+                        const notification = await Notification.findOne({receiver: admin})
+                        if (notification) {
+                            notification.backlog.push(`Your account has been promoted to full, modify your alias. `)
+                            await notification.save() //sta qui
+                        } else {
+                            await Notification.create({
+                                receiver: admin,
+                                backlog: `Your account has been promoted to full, modify your alias. `
+                            })
+                        }
+                    }
+                }
 
                 const notification = await Notification.findOne({receiver: admin})
                 if(notification){

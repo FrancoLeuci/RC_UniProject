@@ -2,7 +2,7 @@ const express = require('express');
 const {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
     requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup,
     requestToCreatePortal,requestToCreateGroup} = require('../controller/userController')
-const {getProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups} = require('../controller/profileController')
+const {getMyProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups, getProfile} = require('../controller/profileController')
 const {verifyToken} = require('../middleware/authMiddleware')
 
 const router = express.Router();
@@ -20,16 +20,17 @@ router.put('/delete', verifyToken, deleteSelfRequest)
 router.put('/reset', resetPasswordRequest)
 router.put('/reset/:key', resetPassword)
 
-router.get('/profile', verifyToken, getProfile)
+router.get('/profile', verifyToken, getMyProfile)
 router.put('/edit', verifyToken, editProfile)
 router.put('/editPassword', verifyToken, editPassword)
+router.get('/profile/:id', getProfile)
 
 router.put('/portalRequest/:portalId', verifyToken, requestToBecomePortalMember)
-router.put('/portalRequest/create', verifyToken, requestToCreatePortal)
+router.put('/create/portalRequest', verifyToken, requestToCreatePortal)
 
 router.get('/groups', verifyToken, getGroups)
 router.put('/groupRequest/:grId', verifyToken, requestToBecomeGroupMember)
-router.put('/groupRequest/create/:portal', verifyToken, requestToCreatePortal)
+router.put('/groupRequest/create/:portal', verifyToken, requestToCreateGroup)
 
 // presi da pageRoutes
 router.get('/users', getAllUsers);
