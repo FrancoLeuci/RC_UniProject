@@ -68,7 +68,7 @@ async function setExpoPublic(req,res,next){
                     sender: fullAccount._id,
                     receiver: expo.portal,
                     type: "portal.requestToLinkExposition",
-                    content: `${creator.realName} want to publish the exposition ${expo.title}.`,
+                    content: `${creator.realName} wants to publish the exposition ${expo.title}.`,
                     extra: expo._id
                 })
             }else{
@@ -291,35 +291,52 @@ async function connectToPortal(req,res,next){
             throw new HttpError("User is not a member/admin of the portal. You can't forward the request.",403)
         }
 
-        if(isAdmin) {
-            expo.portal = portalId
+        //controllo se è già "published"
+        if(expo.published){
+            const existingRequest = await Request.findOne({
+                sender: user.basicCorrespondent,
+                receiver: expo.portal,
+                type: "portal.requestToLinkExposition",
+                extra: expo._id
+            })
+            if(existingRequest) throw new HttpError('Request already made to the portal',409)
+
+            if(!expo.reviewer.flag){
+                await Request.create({
+                    sender: user.basicCorrespondent,
+                    receiver: expo.portal,
+                    type: "portal.requestToLinkExposition",
+                    content: `${user.realName} wants to connect exposition ${expo.title}.`,
+                    extra: expo._id
+                })
+            }else{
+                throw new HttpError('Exposition already in reviewing phase. ',401)
+            }
+
+            expo.status="reviewing"
             await expo.save()
-
-            portal.linkedExpositions.push(expo._id)
-            await portal.save()
-
-            res.send('Exposition connected successfully to the portal')
-        } else {
+            return res.status(200).json({ok: true, message:'Request sent successfully.'})
+        }else{
             const requestExists = await Request.findOne({
-                sender: user.basicCorrespondent,
-                receiver: portalId,
-                type: "collaboration.requestToPortal",
-                extra: expo._id
-            })
+            sender: user.basicCorrespondent,
+            receiver: portalId,
+            type: "collaboration.requestToPortal",
+            extra: expo._id
+        })
 
-            if(requestExists) throw new HttpError('You already made the request.',409)
+        if(requestExists) throw new HttpError('You already made the request.',409)
 
-            const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
 
-            await Request.create({
-                sender: user.basicCorrespondent,
-                receiver: portalId,
-                type: "collaboration.requestToPortal",
-                content: `${expoCreator.realName} wants to connect his exposition to ${portal.name}.`,
-                extra: expo._id
-            })
+        await Request.create({
+            sender: user.basicCorrespondent,
+            receiver: portalId,
+            type: "collaboration.requestToPortal",
+            content: `${expoCreator.realName} wants to connect his exposition to ${portal.name}.`,
+            extra: expo._id
+        })
 
-            res.status(200).send('Request sent successfully.')
+        res.status(200).send('Request sent successfully.')
         }
     }catch(err){
         next(err)

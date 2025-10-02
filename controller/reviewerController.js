@@ -47,12 +47,14 @@ async function expoToReviewList(req,res,next){
 async function expoStatus(req, res, next){
     const reviewer = req.user.id
     const expoId = req.params.expoId
-    const {action} = req.body
+    //portalId nel caso non sia linkata a nessun portale e sia stata già pubblicata
+    const {action,portalId} = req.body
     try{
         const expo = await Exposition.findById(expoId).populate("portal")
         if(!expo) throw new HttpError('Exposition not found',404)
 
-        if(expo.published)throw new HttpError("Exposition already published. ",409)
+        const portal=await Portal.findById(portalId)
+        if(!portal)throw new HttpError('Portal not found',404)
 
         if(String(expo.reviewer.user)!==reviewer) throw new HttpError('You are not the reviewer.',401)
 
@@ -61,11 +63,56 @@ async function expoStatus(req, res, next){
         const creatorFullAccount=await FullUser.findById(creator.userId)
         const notificationCreator = await Notification.findOne({receiver: creatorFullAccount.basicCorrespondent})
         if(action==='rejected'){
-            expo.shareStatus = 'private' //lo stato cambia per permettere ai membri di editarlo
-        } else if(action==='accepted'){
-            let userToShowNotification=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+            if(expo.published){
+                let notification = await Notification.findOne({receiver: creator.userId})
+                if(notification){
+                    notification.feed.push(`A reviewer from portal ${portal.name} has rejected your publication request for ${expo.title}.`)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: creator.userId,
+                        feed: `A reviewer from portal ${portal.name} has rejected your publication request for ${expo.title}.`
+                    })
+                }
+                //torna semplicemente a public dopo essere stata rigettata dal reviewer del portale
+                expo.shareStatus = 'public'
+            }else{
+                expo.shareStatus = 'private' 
+                //lo stato cambia per permettere ai membri di editare
+            }
 
-            await Promise.all(userToShowNotification.map(async user => {
+        } else if(action==='accepted'){
+
+            //chi segue il portale
+            const userToShowNotificationPortal=await BasicUser.find({followedPortals:expo.portal._id})
+            
+
+            if(expo.published){
+                portal.linkedExpositions.push(expo._id)
+                await portal.save()
+                expo.portal=portal._id
+                expo.shareStatus="public";
+                //salva alla fine di tutto
+
+                //notifica a chi segue il portale del link avvenuto tra expo pubblicata e portale
+                await Promise.all(userToShowNotificationPortal.map(async user => {
+                let notification = await Notification.findOne({receiver: user._id})
+                if(notification){
+                    notification.feed.push(`Portal ${expo.portal.name} has a new published exposition: ${expo.title}, created by ${creatorFullAccount.alias}.`)
+                    await notification.save() //sta qui
+                } else {
+                    await Notification.create({
+                        receiver: user._id,
+                        feed: `Portal ${expo.portal.name} has a new published exposition: ${expo.title}, created by ${creatorFullAccount.alias}.`
+                    })
+                }
+
+            }))
+            }else{
+                //se non era mai stata published
+                const userToShowNotificationCreator=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+                
+                await Promise.all(userToShowNotificationCreator.map(async user => {
                 let notification = await Notification.findOne({receiver: user._id})
                 if(notification){
                     notification.feed.push(`${creatorFullAccount.alias} has published the exposition ${expo.title}`)
@@ -76,12 +123,11 @@ async function expoStatus(req, res, next){
                         feed: `${creatorFullAccount.alias} has published the exposition ${expo.title}`
                     })
                 }
+
             }))
 
-            userToShowNotification=await BasicUser.find({followedPortals:expo.portal._id})
-
-            await Promise.all(userToShowNotification.map(async user => {
-                notification = await Notification.findOne({receiver: user._id})
+            await Promise.all(userToShowNotificationPortal.map(async user => {
+                let notification = await Notification.findOne({receiver: user._id})
                 if(notification){
                     notification.feed.push(`Portal ${expo.portal.name} has a new published exposition: ${expo.title}, created by ${creatorFullAccount.alias}.`)
                     await notification.save() //sta qui
@@ -92,8 +138,9 @@ async function expoStatus(req, res, next){
                     })
                 }
             }))
-            
             expo.published=true;
+        }
+
         } else {
             throw new HttpError('Action not valid',400)
         }

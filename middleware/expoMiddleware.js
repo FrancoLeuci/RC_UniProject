@@ -1,7 +1,7 @@
 const FullUser=require("../model/FullUser")
 const Exposition=require("../model/Exposition")
 
-//TODO: non funziona bene il middleware
+
 async function expoCheck(req,res,next) {
     const userId = req.user.id
     const expoId = req.params.expoId;

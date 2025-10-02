@@ -177,7 +177,7 @@ async function actionRequest(req, res, next) {
 
         //per le tipologie che non sono gestite da questa funzione
         if(request.type===("collaboration.addUser"||"collaboration.requestToPortal"||"portal.requestToLinkExposition"||"portal.delete"||"user.selfDeleteRequest"||"portal.create"||"group.create")&&action!=='canceled'){
-            throw new HttpError('This function does not accept/reject this type of request',409)
+            throw new HttpError('This function does not accept this type of request',409)
         }
 
         //elimino la richiesta dal DB
