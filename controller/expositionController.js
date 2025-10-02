@@ -291,27 +291,36 @@ async function connectToPortal(req,res,next){
             throw new HttpError("User is not a member/admin of the portal. You can't forward the request.",403)
         }
 
+        if(isAdmin) {
+            expo.portal = portalId
+            await expo.save()
 
-        const requestExists = await Request.findOne({
-            sender: user.basicCorrespondent,
-            receiver: portalId,
-            type: "collaboration.requestToPortal",
-            extra: expo._id
-        })
+            portal.linkedExpositions.push(expo._id)
+            await portal.save()
 
-        if(requestExists) throw new HttpError('You already made the request.',409)
+            res.send('Exposition connected successfully to the portal')
+        } else {
+            const requestExists = await Request.findOne({
+                sender: user.basicCorrespondent,
+                receiver: portalId,
+                type: "collaboration.requestToPortal",
+                extra: expo._id
+            })
 
-        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+            if(requestExists) throw new HttpError('You already made the request.',409)
 
-        await Request.create({
-            sender: user.basicCorrespondent,
-            receiver: portalId,
-            type: "collaboration.requestToPortal",
-            content: `${expoCreator.realName} wants to connect his exposition to ${portal.name}.`,
-            extra: expo._id
-        })
+            const expoCreator = await BasicUser.findById(user.basicCorrespondent)
 
-        res.status(200).send('Request sent successfully.')
+            await Request.create({
+                sender: user.basicCorrespondent,
+                receiver: portalId,
+                type: "collaboration.requestToPortal",
+                content: `${expoCreator.realName} wants to connect his exposition to ${portal.name}.`,
+                extra: expo._id
+            })
+
+            res.status(200).send('Request sent successfully.')
+        }
     }catch(err){
         next(err)
     }

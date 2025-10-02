@@ -356,24 +356,42 @@ async function addReviewer(req,res,next){
 
 async function removeReviewer(req,res,next) {
     const portal=req.portal;
-    const reviewerToRemove=req.params.id
+    const reviewerToRemoveId=req.params.id
     try{
         //basic user può essere un reviewer
-        if(!portal.reviewers.includes(reviewerToRemove)){
+        if(!portal.reviewers.includes(reviewerToRemoveId)){
             throw new HttpError("User is not a Reviewer.",404)
         }
 
         portal.reviewers=portal.reviewers.filter(a=>a!==reviewerToRemove);
         await portal.save();
 
+        const listExpoOfReviewer = await Exposition.find({reviewer: {flag:true, user:reviewerToRemoveId}})
+        await Promise.all(listExpoOfReviewer.map(async expo => {
+            expo.shareStatus = "private"
+            expo.reviewer = {flag: false, user: null}
+            await expo.save()
 
-        const notification = await Notification.findOne({receiver: reviewerToRemove})
+            const creator = expo.authors.filter(a => a.role==='creator')
+            const notification = await Notification.findOne({receiver: creator.userId})
+            if(notification){
+                notification.backlog.push(`The reviewer of the exposition ${expo.title} was removed from the portal, it's necessary to send another request of publication. `)
+                await notification.save() //sta qui
+            } else {
+                await Notification.create({
+                    receiver: creator.userId,
+                    backlog: `The reviewer of the exposition ${expo.title} was removed from the portal, it's necessary to send another request of publication. `
+                })
+            }
+        }))
+
+        const notification = await Notification.findOne({receiver: reviewerToRemoveId})
         if(notification){
             notification.backlog.push(`You're not a reviewer of ${portal.name} anymore. `)
             await notification.save() //sta qui
         } else {
             await Notification.create({
-                receiver: reviewerToRemove,
+                receiver: reviewerToRemoveId,
                 backlog: `You're not a reviewer of the portal ${portal.name} anymore. `
             })
         }
