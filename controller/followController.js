@@ -1,4 +1,4 @@
-const BasicUser = require('../model/BasicUser');
+const User = require('../model/User');
 const Portal = require('../model/Portal')
 
 const {HttpError} = require("../middleware/errorMiddleware");
@@ -12,10 +12,10 @@ async function getFollowedUsers(req,res,next){
     const userId=req.user.id;
 
     try{
-        const userAccount= await BasicUser.findById(userId);
+        const userAccount= await User.findById(userId);
 
         const userMap=await Promise.all(userAccount.followedResearchers.map(async (researcher,i)=> {
-            const foundUser=await BasicUser.findById(researcher.followedUserId)
+            const foundUser=await User.findById(researcher.followedUserId)
             if(!foundUser){
                 //potrebbe essere tolto
                 //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
@@ -48,7 +48,7 @@ async function getFollowedPortals(req,res,next){
     const userId=req.user.id;
 
     try{
-        const userAccount= await BasicUser.findById(userId);
+        const userAccount= await User.findById(userId);
 
         const portalMap=await Promise.all(userAccount.followedPortals.map(async (portal,i)=> {
             const foundPortal=await Portal.findById(portal.followedPortalId)
@@ -86,9 +86,9 @@ async function addFollowed(req, res, next){
     const userId = req.user.id
     const addId = req.params.id;
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
 
-        let follow = await BasicUser.findById(addId)
+        let follow = await User.findById(addId)
         if(!follow){
             follow = await Portal.findById(addId)
             if(!follow){
@@ -100,7 +100,7 @@ async function addFollowed(req, res, next){
                 throw new HttpError(`You already follow the portal: ${follow.name}`,409)
             }
 
-            //aggiungo l'id del portale in followedPortals del BasicUser
+            //aggiungo l'id del portale in followedPortals del User
             console.log(user.followedPortals)
             user.followedPortals.push(follow._id)
             await user.save()
@@ -113,7 +113,7 @@ async function addFollowed(req, res, next){
             throw new HttpError(`You already follow the user: ${follow.realName}`,409)
         }
         console.log(user.followedResearchers)
-        //aggiungo l'id dell'utente in followedPortals del BasicUser
+        //aggiungo l'id dell'utente in followedPortals del User
         user.followedResearchers.push(follow._id)
         await user.save()
         console.log(user.followedResearchers)

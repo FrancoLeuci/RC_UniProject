@@ -1,5 +1,5 @@
 const mongoose=require("mongoose")
-const BasicUser=require("./BasicUser")
+const User=require("./User")
 
 //TODO: un singolo oggetto Notification per utente in cui saranno contenute tutte le stringhe delle notifiche
 const notificationSchema = new mongoose.Schema({

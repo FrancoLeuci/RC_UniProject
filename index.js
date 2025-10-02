@@ -9,7 +9,6 @@ const followRoutes = require('./routes/followRoutes');
 const mediaRoutes = require('./routes/mediaRoutes');
 const setRoutes=require('./routes/setRoutes');
 const requestRoutes = require('./routes/requestRoutes');
-const groupRoutes = require('./routes/groupRoutes');
 const expositionRoutes = require('./routes/expositionRoutes')
 const reviewerRoutes = require('./routes/reviewerRoutes');
 const superAdminRoutes = require('./routes/superAdminRoutes')
@@ -29,7 +28,6 @@ app.use("/api/follow", followRoutes)
 app.use("/api/uploads",mediaRoutes)
 app.use("/api/set", setRoutes)
 app.use("/api/requests", requestRoutes)
-app.use("/api/group", groupRoutes)
 app.use("/api/expo", expositionRoutes)
 app.use("/api/reviewer", reviewerRoutes)
 app.use("/api/superAdmin", superAdminRoutes)

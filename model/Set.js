@@ -1,5 +1,5 @@
 const mongoose=require("mongoose")
-const basicUser=require("./BasicUser")
+const basicUser=require("./User")
 const portals=require("./Portal")
 const Media=require("./Media")
 

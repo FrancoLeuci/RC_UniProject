@@ -1,10 +1,9 @@
 // controller che presente le funzionalità di gestione del profilo da parte di un utente
-const BasicUser = require('../model/BasicUser');
+const User = require('../model/User');
 const Set = require("../model/Set");
-const FullUser = require("../model/FullUser");
+const Author = require("../model/Author");
 const Request = require("../model/Request");
 const Portal = require("../model/Portal");
-const Group = require("../model/Group");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
@@ -12,7 +11,7 @@ async function getMyProfile(req, res, next) {
     const userId = req.user.id;
 
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
 
         res.status(200).json({ok: true, data: user});
     }catch(err){
@@ -25,7 +24,7 @@ async function editProfile(req, res, next){
     const userId = req.user.id //ottenuto da verifyToken
 
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
 
         //email
         if(body.email){
@@ -55,7 +54,7 @@ async function editProfile(req, res, next){
 
         await user.save()
 
-        const fullUser = await FullUser.findOne({basicCorrespondent: user._id})
+        const fullUser = await Author.findOne({basicCorrespondent: user._id})
         if(fullUser&&body.alias){
             fullUser.alias = body.alias
             await fullUser.save()
@@ -74,7 +73,7 @@ async function editSettings(req,res,next){
     const userId = req.user.id //ottenuto da verifyToken
 
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
         if(settings.language!==this.language){
             user.settings.language=settings.language;
         }
@@ -104,7 +103,7 @@ async function editPassword(req, res, next){
     const userId = req.user.id;
 
     try{
-        const user = await BasicUser.findById(userId);
+        const user = await User.findById(userId);
 
         if(!newPass){
             throw new HttpError("Password is required",400)
@@ -129,7 +128,7 @@ async function editPassword(req, res, next){
 
 async function getAllUsers(req, res, next){
     try{
-        const users = await BasicUser.find({verified: true})
+        const users = await User.find({verified: true})
 
         res.status(200).json({ok: true, users})
     }catch(err){
@@ -144,7 +143,7 @@ async function getUserView(req, res, next){
     const profileId = req.params.id
 
     try{
-        const userInfo = await BasicUser.findById(profileId)
+        const userInfo = await User.findById(profileId)
         if(!userInfo){
             throw new HttpError("User not found",404)
         }
@@ -156,7 +155,7 @@ async function getUserView(req, res, next){
             if (set.visibility === "public") {
                 return set
             } else if (set.visibility === "website" && userId) {
-                const viewer = await BasicUser.findById(userId)
+                const viewer = await User.findById(userId)
                 if (viewer) {
                     return set
                 } else {
@@ -176,9 +175,9 @@ async function getUserView(req, res, next){
 
 async function getUserWithPublic(req, res, next){
     try{
-        const fullUsers = await FullUser.find({"expositions.0":{$exists:true}})
+        const fullUsers = await Author.find({"expositions.0":{$exists:true}})
         let basicUsers = await Promise.all(
-            fullUsers.map(async user => await BasicUser.findById(user.basicCorrespondent))
+            fullUsers.map(async user => await User.findById(user.basicCorrespondent))
         )
 
         res.json({ok: true, basicUsers})
@@ -190,31 +189,17 @@ async function getUserWithPublic(req, res, next){
 }
 
 //sono i gruppi a cui appartiene l'utente
-async function getGroups(req, res, next){
-    const userId = req.user.id
-    try{
-        const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
-        if(!fullAccount){
-            throw new HttpError("User is not a full account",409)
-        }
 
-        const groups = await Promise.all(fullAccount.groups.map(async group => await Group.findById(group)))
-
-        res.status(200).json({ok: true, data: groups})
-    }catch(err){
-        next(err)
-    }
-}
 
 //
 async function getProfile(req, res, next){
     const otherProfileId=req.params.id
     const {userId} = req.body
     try{
-        const profile = await BasicUser.findById(otherProfileId)
+        const profile = await User.findById(otherProfileId)
         if(profile.hide){
             if(userId){
-                const user = await BasicUser.findById(userId)
+                const user = await User.findById(userId)
                 if(user.role==='super-admin'){
                     return res.json(profile)
                 } else {throw new HttpError("This user's profile is private. ",403)}
@@ -229,4 +214,4 @@ async function getProfile(req, res, next){
     }
 }
 
-module.exports = {getMyProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getGroups, getProfile};
+module.exports = {getMyProfile, editProfile, editPassword, getAllUsers, getUserView, getUserWithPublic, getProfile};

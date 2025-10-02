@@ -1,4 +1,4 @@
-const BasicUser = require('../model/BasicUser')
+const User = require('../model/User')
 const nodemailer = require('nodemailer');
 const {google} = require('googleapis');
 const crypto = require('crypto');
@@ -6,8 +6,7 @@ const jwt = require('jsonwebtoken')
 const RefreshToken=require("../model/tokenModel")
 const Portal = require("../model/Portal")
 const Request = require("../model/Request");
-const Group = require("../model/Group");
-const FullUser=require("../model/FullUser")
+const Author=require("../model/Author")
 
 require('dotenv').config();
 
@@ -87,7 +86,7 @@ async function emailSender (email, id, resetKey, next){
         }
     }catch(err){
         if(resetKey===undefined){
-            await BasicUser.findByIdAndDelete(id)
+            await User.findByIdAndDelete(id)
         }
         console.error("Errore invio email:", err);
         throw new HttpError("Failed to send email: " + err.message, 500);
@@ -116,7 +115,7 @@ async function register(req, res, next){
             //return res.status(400).json({message: 'Missing password'})
         }
 
-        const user=await BasicUser.create({
+        const user=await User.create({
             realName: `${name} ${surname}`,
             email,
             password,
@@ -138,7 +137,7 @@ async function accountVerify(req, res, next){
 
     try{
         // verifica che l'utente esista nel DB
-        const user = await BasicUser.findById(id)
+        const user = await User.findById(id)
         if(!user){
             throw new HttpError("User not Found",404)
             //return res.status(404).json({error: 'User not found'});
@@ -176,11 +175,12 @@ async function login(req, res, next){
             //return res.status(400).json({message: 'Missing password'})
         }
 
-        const user = await BasicUser.findOne({email})
+        const user = await User.findOne({email})
         if(!user){
             throw new HttpError("User not found",404)
             //return res.status(404).json({error: 'User not found'})
         }
+        if(user.disabled)throw new HttpError("This account has been disabled.",404)
 
         const valid = await user.comparePassword(password)
         if(!valid){
@@ -261,7 +261,7 @@ async function resetPasswordRequest(req, res, next){
             //return res.status(400).json({message: 'Missing email'})
         }
 
-        const user = await BasicUser.findOne({email})
+        const user = await User.findOne({email})
         if(!user){
             throw new HttpError("Email not valid",404)
             //return res.status(404).json({error: 'Email not valid, try again'})
@@ -286,7 +286,7 @@ async function resetPassword(req, res, next){
     const {newPass} = req.body;
 
     try{
-        const user = await BasicUser.findOne({passwordForgottenKey})
+        const user = await User.findOne({passwordForgottenKey})
         if(!user){
             throw new HttpError("Link not valid",403)
             //return res.status(403).json({error: 'Link not valid'})
@@ -322,7 +322,7 @@ async function requestToBecomePortalMember(req, res, next){
         }
 
         if(!portal.features.MEMBERSHIP_SELECTION) throw new HttpError(`${portal.name} does not accept request`,409)
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
 
         const existingRequest = await Request.findOne({
             sender: user._id,
@@ -339,10 +339,10 @@ async function requestToBecomePortalMember(req, res, next){
             throw new HttpError("You are already a member of the portal",409)
         }
 
-        const isFull = await FullUser.findOne({basicCorrespondent: user._id})
+        const isFull = await Author.findOne({basicCorrespondent: user._id})
         if(!isFull){
             if(!aliasName) throw new HttpError('Alias field is required',400)
-            const isUnique = await FullUser.findOne({alias: aliasName})
+            const isUnique = await Author.findOne({alias: aliasName})
             if(isUnique) throw new HttpError('Alias already in use',409)
 
             await Request.create({
@@ -369,56 +369,12 @@ async function requestToBecomePortalMember(req, res, next){
     }
 }
 
-async function requestToBecomeGroupMember(req, res, next){
-    const userId = req.user.id
-    const groupId = req.params.grId
-    try{
-        const group = await Group.findById(groupId)
-        if(!group){
-            throw new HttpError("Group not found",404)
-        }
-
-        const user = await BasicUser.findById(userId)
-
-        const portal = await Portal.findById(group.portal)
-
-        const existingRequest = await Request.findOne({
-            sender: userId,
-            receiver: group._id,
-            type: 'group.requestToAccess',
-            extra: group._id
-        });
-
-        if (existingRequest) {
-            throw new HttpError("You have already requested access to this group", 409);
-        }
-
-        if(group.members.includes(user._id)||group.admins.includes(user._id)){
-            throw new HttpError("You are already a member of the group",409)
-        }
-
-        if(!user.approved) throw new HttpError("You do not have a full account",409);
-
-        await Request.create({
-            sender: userId,
-            receiver: group._id,
-            type: 'group.requestToAccess',
-            content: `${user.realName} want to became a member of ${group.title}`,
-            extra: group._id
-        })
-
-        res.status(201).json({ok: true, message: "Request send successfully"})
-    }catch(err){
-        next(err)
-    }
-}
-
 async function findUserByName(req,res,next){
     const {text} = req.body;
     try{
         if(!text) throw new HttpError("Enter a text",400);
 
-        const allUsers = await BasicUser.find({});
+        const allUsers = await User.find({});
 
         const validUsers = allUsers.filter(user => user.realName.includes(text))
 
@@ -433,12 +389,12 @@ async function deleteSelfRequest(req,res,next){
     const userId = req.user.id
 
     try{
-        const superAdminList=await BasicUser.find({role:"super-admin"})
+        const superAdminList=await User.find({role:"super-admin"})
         //capire lo status code
         if(superAdminList.length===0)throw new HttpError("Can't request to delete your account. There are no superAdmins available at the moment. Contant the website owner. ",418)
 
-        const user=await BasicUser.findById(userId).populate("portals")
-        const userFullAccount=await FullUser.findOne({basicCorrespondent:user._id}).populate("groups")
+        const user=await User.findById(userId).populate("portals")
+        const userFullAccount=await Author.findOne({basicCorrespondent:user._id}).populate("groups")
         //controllo sui gruppi, se è unico admin deve promuovere almeno un altro alla posizione
         if(userFullAccount){
             let oneAdminNotification = []
@@ -488,12 +444,12 @@ async function fullAccountRequest(req,res,next){
 
     try{
         if(!newAlias)throw new HttpError("Alias not found. You must specify an alias to request a Full Account. ",400)
-        const sameAlias=await FullUser.findOne({alias:newAlias})
+        const sameAlias=await Author.findOne({alias:newAlias})
         if(sameAlias)throw new HttpError("Alias already in use. Please choose another one. ",409)
 
-        const superAdminList=await BasicUser.find({role:"super-admin"})
+        const superAdminList=await User.find({role:"super-admin"})
         if(superAdminList.length===0)throw new HttpError("Can't request to update your account. There are no superAdmins available at the moment. Contant the website owner. ",418)
-        const user=await BasicUser.findById(userId)
+        const user=await User.findById(userId)
         if(!user){
             throw new HttpError("User not found.",404)
         }
@@ -537,20 +493,8 @@ async function leavePortal(req,res,next){
     try{
         const portal=await Portal.findById(portalId).populate("linkedExpositions");
         if(!portal)throw new HttpError("Portal not found.",404)
-        const userBasicAccount=await BasicUser.findById(userId)
-        const userFullAccount=await FullUser.findOne({basicCorrespondent:userBasicAccount._id}).populate("groups").populate("expositions")
-
-        if(userFullAccount){
-            const portalGroups = userFullAccount.groups.filter(g => g.portal.equals(portal._id))
-            let oneAdminNotification = []
-            portalGroups.forEach(pg=>{
-                if(pg.admins.includes(userFullAccount._id)&&pg.admins.length===1) oneAdminNotification.push(pg.title)
-            })
-            if(oneAdminNotification.length>0){
-                throw new HttpError(
-                    `${oneAdminNotification.join(", ")} only has/have 1 admin. Promote a member for each portal to leave the portal.`, 409);
-            }
-        }
+        const userBasicAccount=await User.findById(userId)
+        const userFullAccount=await Author.findOne({basicCorrespondent:userBasicAccount._id}).populate("expositions")
 
         if(userBasicAccount.portals.includes(portal._id)){
             let index=portal.admins.indexOf(userBasicAccount._id);
@@ -573,7 +517,7 @@ async function leavePortal(req,res,next){
                         await e.save();
 
                         const creator=e.authors.find(a => a.role==="creator")
-                        const creatorFull=await FullUser.findById(creator.userId)
+                        const creatorFull=await Author.findById(creator.userId)
 
                         const notification = await Notification.findOne({receiver: creatorFull.basicCorrespondent})
                         if (notification) {
@@ -603,34 +547,6 @@ async function leavePortal(req,res,next){
             userBasicAccount.portals.splice(userBasicAccount.portals.indexOf(portal._id),1)
             await userBasicAccount.save()
 
-            //esce dai gruppi
-            if(userFullAccount){
-                const portalGroups = userFullAccount.groups.filter(g => g.portal.equals(portal._id))
-                await Promise.all(userFullAccount.groups.map(async g=>{
-                    let index=g.admins.indexOf(userFullAccount._id);
-                    if(index===-1){
-                        index=g.members.indexOf(userFullAccount._id);
-                        g.members.splice(index,1)
-                    } else {
-                        g.admins.splice(index,1)
-                    }
-                    await g.save();
-
-                    const notification = await Notification.findOne({receiver: g._id})
-                    if (notification) {
-                        notification.backlog.push(`${userBasicAccount.realName} has left the Portal ${portal.name}, so he/she won't be part of ${g.title} anymore.`)
-                        await notification.save() //sta qui
-                    } else {
-                        await Notification.create({
-                            receiver: g._id,
-                            backlog: `${userBasicAccount.realName} has left the Portal ${portal.name}, so he/she won't be part of ${g.title} anymore. `
-                        })
-                    }
-                }))
-
-                userFullAccount.groups=userFullAccount.groups.filter(g=>!g.portal.equals(portal._id))
-                await userFullAccount.save()
-
                 //ho popolato linkedExpositions ed expositions rispettivamente da portal e userFullAccount
                 await Promise.all(userFullAccount.expositions.map(async e=>{
                     //se è collegata al portale di cui sopra
@@ -657,52 +573,10 @@ async function leavePortal(req,res,next){
     }
 }
 
-//I gruppi saranno gestiti dai soli admin di esso, il portal-admin potrà solo crearli inserendo il primo admin del gruppo
-async function leaveGroup(req,res,next){
-    const userId=req.user.id
-    const groupId=req.params.groupId
-    try{
-        const group=await Group.findById(groupId)
-        if(!group) throw new HttpError('Group not found.',404)
-        const userFullAccount=await FullUser.findOne({basicCorrespondent:userId})
-        if(!userFullAccount){
-            throw new HttpError("User does not have a full account. ",400)
-        }
 
-        if(userFullAccount.groups.includes(group._id)){
-            userFullAccount.groups=userFullAccount.groups.filter(g=>!g.equals(group._id))
-            let index=group.members.indexOf(userFullAccount._id)
-            if(index===-1){
-                if(group.admins.length===1) throw new HttpError(`Can't process this request, you are the only admin in ${group.title}. Add another admin to the list and then request again.`,400)
-                group.admins.splice(group.admins.indexOf(userFullAccount._id),1)
-            }else{
-                group.members.splice(index,1)
-            }
-
-            const notification = await Notification.findOne({receiver: group._id})
-            if (notification) {
-                notification.backlog.push(`${userFullAccount.alias} has left the Group ${group.title}. `)
-                await notification.save() //sta qui
-            } else {
-                await Notification.create({
-                    receiver: group._id,
-                    backlog: `${userFullAccount.alias} has left the Group ${group.title}. `
-                })
-            }
-
-            await userFullAccount.save()
-            await group.save();
-        } else {
-            throw new HttpError(`You are not a member/admin of ${group.title} group.`,400)
-        }
-        res.status(200).send("You left the group.")
-    }catch(err){
-        next(err)
-    }
-}
 
 async function requestToCreatePortal(req, res, next){
-    //adminsId è un array di BasicUser.id
+    //adminsId è un array di User.id
     const userId = req.user.id
     const {name, description, adminsId, aliasName} = req.body;
     try{
@@ -712,7 +586,7 @@ async function requestToCreatePortal(req, res, next){
 
         //TODO TEST
         await Promise.all(adminsId.map(async adminId=>{
-            const user=await BasicUser.findById(adminId);
+            const user=await User.findById(adminId);
             if(!user)throw new HttpError(`Search for id: ${adminId} didn't bring up any account.`,404)
         }))
 
@@ -733,14 +607,14 @@ async function requestToCreatePortal(req, res, next){
             throw new HttpError("Request alredy sent.", 409);
         }
 
-        const superAdminList=await BasicUser.find({role:"super-admin"})
+        const superAdminList=await User.find({role:"super-admin"})
         if(superAdminList.length===0)throw new HttpError("Can't request to create the portal. There are no superAdmins available at the moment. Contact the website owner. ",418)
 
-        const user = await BasicUser.findById(userId)
-        const isFull = await FullUser.findOne({basicCorrespondent: userId})
+        const user = await User.findById(userId)
+        const isFull = await Author.findOne({basicCorrespondent: userId})
         if(!isFull){
             if(!aliasName) throw new HttpError('Alias field is required',400)
-            const isUnique = await FullUser.findOne({alias: aliasName})
+            const isUnique = await Author.findOne({alias: aliasName})
             if(isUnique) throw new HttpError('Alias already in use',409)
 
             await Promise.all(superAdminList.map(async superAdmin => {
@@ -776,70 +650,4 @@ async function requestToCreatePortal(req, res, next){
     }
 }
 
-//TODO test
-async function requestToCreateGroup(req, res, next){
-    //adminsId è un array di BasicUser.id
-    const userId = req.user.id
-    const portalId=req.params.portal //id del portale nei parametri
-    const {title, description, adminsId} = req.body;
-    try{
-        if(!portalId) throw new HttpError("Can't find portal Id in request parameters.")
-        const user = await BasicUser.findById(userId)
-        if(user.portals.includes(portalId)){
-            const portal = await Portal.findById(portalId);
-            if(portal.admins.includes(user._id)) throw new HttpError('You are Not Authorized - you are an admin of the portal, use the API createGroup',401)
-        } else {
-            throw new HttpError('You are Not Authorized - you are not a member of the portal',401)
-        }
-
-        const userFull=await FullUser.findOne({basicCorrespondent:userId})
-        if(!userFull) throw new HttpError("You can't create a group since you don't have a full account. ",403)
-        const portal=await Portal.findById(portalId)
-        if(!portal) throw new HttpError("Portal not found.",404)
-        if(!title || !description || adminsId.length<1){
-            throw new HttpError('All fields are required',400)
-        }
-
-        //TODO TEST
-        await Promise.all(adminsId.map(async adminId=>{
-            const isMember = portal.members.includes(adminId)
-            const isAdmin = portal.admins.includes(adminId)
-            if(!isMember&&!isAdmin)throw new HttpError("One of the users in the admin list is not a member or an admin of the portal.",404)
-        }))
-
-        adminsId.push(userId)
-
-        //una richiesta per volta, per lo stesso portale
-        //!IMPORTANT controlla che non ci siano richieste per lo stesso portale di creazione di gruppi con lo stesso titolo e description
-        const existingRequest = await Request.findOne({
-            sender: userId,
-            type: 'group.create',
-            "formFields.title": title,
-            "formFields.description": description,
-            receiver:portal._id
-        });
-
-        if (existingRequest) {
-            throw new HttpError("Request alredy sent.", 409);
-        }
-
-        await Request.create({
-            sender: userId,
-            receiver: portal._id,
-            type: 'group.create',
-            content: `${userFull.alias} has requested to create a portal.`,
-            "formFields.title": title,
-            "formFields.description": description,
-            "formFields.adminList": adminsId
-        })
-
-        res.status(201).json({ok: true, message: "Request sent successfully."})
-
-    }catch(err){
-        next(err)
-    }
-}
-
-module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember,
-    requestToBecomeGroupMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, leaveGroup, requestToCreatePortal,
-    requestToCreateGroup}
+module.exports = {register, accountVerify, login, logout, resetPasswordRequest, resetPassword, requestToBecomePortalMember, findUserByName, deleteSelfRequest, fullAccountRequest, leavePortal, requestToCreatePortal}

@@ -1,4 +1,4 @@
-const FullUser=require("../model/FullUser")
+const Author=require("../model/Author")
 const Exposition=require("../model/Exposition")
 
 
@@ -7,7 +7,7 @@ async function expoCheck(req,res,next) {
     const expoId = req.params.expoId;
     try {
         const expo = await Exposition.findById(expoId);
-        const fullAccount = await FullUser.findOne({basicCorrespondent: userId})
+        const fullAccount = await Author.findOne({basicCorrespondent: userId})
 
         if (!expo) {
             throw new Error("expo")

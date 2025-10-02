@@ -1,12 +1,11 @@
 const mongoose = require('mongoose')
 
-const BasicUser=require('./BasicUser')
-const Group = require('./Group')
+const User=require('./User')
 
-const fullUser= new mongoose.Schema({
+const author= new mongoose.Schema({
     basicCorrespondent:{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "BasicUser"
+        ref: "User"
     },
 
     alias:{
@@ -20,12 +19,6 @@ const fullUser= new mongoose.Schema({
         default: Date.now
     },
 
-
-    groups: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Group'
-    }],
-
     expositions: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Exposition"
@@ -33,4 +26,4 @@ const fullUser= new mongoose.Schema({
 
 })
 
-module.exports = mongoose.model('FullUser', fullUser)
+module.exports = mongoose.model('Author', author)

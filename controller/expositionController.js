@@ -1,5 +1,5 @@
-const FullUser = require("../model/FullUser");
-const BasicUser = require('../model/BasicUser');
+const Author = require("../model/Author");
+const User = require('../model/User');
 const Exposition=require("../model/Exposition");
 const Request = require("../model/Request");
 const Portal = require("../model/Portal");
@@ -15,7 +15,7 @@ async function createExposition(req,res,next){
     const {title,abstract,copyright,licence}=req.body;
     
     try{
-        const isFull = await FullUser.findOne({basicCorrespondent: userId});
+        const isFull = await Author.findOne({basicCorrespondent: userId});
         if(!isFull){
             throw new HttpError("You are not a Full User, you can't create an Exposition.",403)
         }
@@ -83,9 +83,9 @@ async function setExpoPublic(req,res,next){
         expo.published=true;
         await expo.save()
 
-        //Voglio tutti gli utenti di BasicUser che, nell'array followedResearchers,
+        //Voglio tutti gli utenti di User che, nell'array followedResearchers,
         //abbiano l'id contenuto nella variabile creator._id
-        const userToShowNotification=await BasicUser.find({followedResearchers:creator.userId})
+        const userToShowNotification=await User.find({followedResearchers:creator.userId})
 
         await Promise.all(userToShowNotification.map(async user => {
             const notification = await Notification.findOne({receiver: user._id})
@@ -137,8 +137,8 @@ async function editExpoMetadata(req,res,next){
 
         if(expo.shareStatus==='public'){
             const creator=expo.authors.find(a=>a.role==="creator")
-            const creatorFullAccount=await FullUser.findById(creator.userId)
-            const userToShowNotification=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+            const creatorFullAccount=await Author.findById(creator.userId)
+            const userToShowNotification=await User.find({followedResearchers:creatorFullAccount.basicCorrespondent})
 
             await Promise.all(userToShowNotification.map(async user => {
                 const notification = await Notification.findOne({receiver: user._id})
@@ -177,7 +177,7 @@ async function addAuthor(req,res,next){
             throw new HttpError('You are not the creator of the exposition.',401)
         }
 
-        const authorToAdd = await FullUser.findById(authorToAddId)
+        const authorToAdd = await Author.findById(authorToAddId)
 
         if(!authorToAdd) throw new HttpError ('User that you want to add does not have a full account',400)
 
@@ -194,9 +194,9 @@ async function addAuthor(req,res,next){
 
         if(requestExists) throw new HttpError('You already made the request',409)
 
-        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+        const expoCreator = await User.findById(user.basicCorrespondent)
         //author To Add Id è del full. Mi serve il basicCorrespondent
-        const authorToAddBasic = await BasicUser.findById(authorToAdd.basicCorrespondent)
+        const authorToAddBasic = await User.findById(authorToAdd.basicCorrespondent)
 
         await Request.create({
             sender: user.basicCorrespondent,
@@ -221,7 +221,7 @@ async function removeAuthor(req,res,next){
     try{
         if(expo.published||expo.shareStatus==="reviewing")throw new HttpError('Exposition already published or undergoing review process, can\'t remove an Author.',400)
 
-        const authorToRemoveFull=await FullUser.findById(authorToRemoveId)
+        const authorToRemoveFull=await Author.findById(authorToRemoveId)
         if(!authorToRemoveFull) throw new HttpError ('User that you want to remove does not have a full account. ',400) //consistenza
 
         const isCreator = expo.authors.find(a=>a.role==="creator")
@@ -244,7 +244,7 @@ async function removeAuthor(req,res,next){
 
 
         //fase di creazione della notifica
-        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+        const expoCreator = await User.findById(user.basicCorrespondent)
 
         //notifica che avvisa l'autore rimosso
         //e c'hai ragione XD
@@ -326,7 +326,7 @@ async function connectToPortal(req,res,next){
 
         if(requestExists) throw new HttpError('You already made the request.',409)
 
-        const expoCreator = await BasicUser.findById(user.basicCorrespondent)
+        const expoCreator = await User.findById(user.basicCorrespondent)
 
         await Request.create({
             sender: user.basicCorrespondent,
@@ -382,7 +382,7 @@ async function getPortalExpositions(req,res,next){
     try{
         const portal=await Portal.findById(portalId).populate("linkedExpositions")
         if(!portal)throw new HttpError("Portal not found.",404)
-        const userBasicAccount=await BasicUser.findById(userId)
+        const userBasicAccount=await User.findById(userId)
         if(!userBasicAccount)throw new HttpError("User not found.",404)
         //controllo che utente che fa la richiesta sia admin o membro del portale
 
@@ -412,12 +412,12 @@ async function getExposition(req,res,next){
 
         if(expo.shareStatus!=="public"){
             if(!userId) throw new HttpError('User Id required',400)
-            const user = await BasicUser.findById(userId)
+            const user = await User.findById(userId)
             if(!user) throw new HttpError('User not found',404)
 
             if(user.role==='super-admin') return res.status(200).json({expo})
 
-            const userFull = await FullUser.findOne({basicCorrespondent: userId})
+            const userFull = await Author.findOne({basicCorrespondent: userId})
             const isAuthor = expo.authors.find(a => a.userId.equals(userFull._id))
             if(expo.shareStatus==="private"&&isAuthor){
                 return res.status(200).json({expo})
@@ -578,7 +578,7 @@ async function removeFromPortal(req, res, next){
             }
             await expo.save();
         } else {
-            throw new HttpError('The exposition is not linked to any portal',400)
+            throw new HttpError('The exposition is not linked to User portal',400)
         }
 
         res.status(200).json(`${expo.title} removed from ${expo.portal.name} portal`)

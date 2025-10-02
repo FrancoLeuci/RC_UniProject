@@ -3,7 +3,7 @@ const sizeOf=require("image-size").default;
 const ffmpeg = require("fluent-ffmpeg");
 const pdfParse = require("pdf-parse");
 const fs=require("fs");
-const BasicUser = require("../model/BasicUser");
+const User = require("../model/User");
 const Portal = require("../model/Portal")
 const Set=require("../model/Set")
 
@@ -100,7 +100,7 @@ async function uploadFile(req,res,next){
             const newImageMedia=await Image.create(media)
 
             if(isProfilePic){
-                const currentUser=await BasicUser.findById(userId)
+                const currentUser=await User.findById(userId)
                 currentUser.profilePicture=newImageMedia._id;
                 await currentUser.save()
             }else if(isPortalPic){
@@ -156,7 +156,7 @@ async function uploadFile(req,res,next){
 
             const newpdfMedia=await pdf.create(media)
             if(isCurriculumVitae){
-                    const currentUser=await BasicUser.findById(userId)
+                    const currentUser=await User.findById(userId)
                     currentUser.curriculumVitae=newpdfMedia._id;
                     await currentUser.save()
             }
@@ -268,7 +268,7 @@ async function getMedia(req, res, next){
     const userId = req.user.id
 
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
         let media = await Media.find({uploadedBy: userId})
         //quando si vuole confrontare 2 ObjectId di mongoose è necessario utilizzare il metodo .equals() al posto dei classici operatori
         media=media.filter(m => !m._id.equals(user.curriculumVitae) && !m._id.equals(user.profilePicture))

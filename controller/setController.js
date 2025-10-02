@@ -1,7 +1,7 @@
 const Set = require("../model/Set")
 const {Media} = require("../model/Media")
 const mongoose=require("mongoose")
-const BasicUser=require("../model/BasicUser");
+const User=require("../model/User");
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
@@ -160,7 +160,7 @@ async function getSet(req,res,next){
             perm => perm.user.toString() === userId
         );
 
-        const isSuperAdmin = await BasicUser.findById(userId)
+        const isSuperAdmin = await User.findById(userId)
 
         if(istheCreator||hasPermission||isSuperAdmin.role==='super-admin'){
             const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const BasicUser=require('./BasicUser')
+const User=require('./User')
 const {Image} = require("./Media");
 const Exposition=require("./Exposition");
 
@@ -11,9 +11,9 @@ const PortalSchema = new mongoose.Schema(
         issn: { type: String }, //identificatore unico nel mondo, fornito da società internazionale
         url: { type: String }, //rimanda a un sito associato al portale in questione
 
-        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }], //da qui nasce la lista degli utenti portal admin
-        reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
-        members: [{ type: mongoose.Schema.Types.ObjectId, ref: BasicUser }],
+        admins: [{ type: mongoose.Schema.Types.ObjectId, ref: User }], //da qui nasce la lista degli utenti portal admin
+        reviewers: [{ type: mongoose.Schema.Types.ObjectId, ref: User }],
+        members: [{ type: mongoose.Schema.Types.ObjectId, ref: User }],
         issues: [{ type: mongoose.Schema.Types.ObjectId, ref: "Issue" /*da creare*/ }], //pubblicazioni
 
         externalContactPersons: { type: String }, //contatti esterni

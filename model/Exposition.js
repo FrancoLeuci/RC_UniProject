@@ -1,8 +1,8 @@
 const mongoose=require("mongoose");
-const FullUser=require("./FullUser")
+const FullUser=require("./Author")
 const Media=require("./Media")
 const Portal=require("./Portal")
-const BasicUser=require("./BasicUser")
+const BasicUser=require("./User")
 
 const ExpositionSchema=new mongoose.Schema({
     title:{

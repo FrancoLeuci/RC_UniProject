@@ -1,7 +1,6 @@
-const BasicUser = require("../model/BasicUser");
-const FullUser = require("../model/FullUser");
+const User = require("../model/User");
+const Author = require("../model/Author");
 const Portal = require("../model/Portal");
-const Group = require("../model/Group");
 const Exposition = require("../model/Exposition")
 const Request = require("../model/Request");
 const Notification = require("../model/Notification");
@@ -25,7 +24,7 @@ async function actionRequest(req, res, next) {
         const request = await Request.findById(requestId)
         if(!request) throw new HttpError('Request not found',404)
 
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
         //controllo sull'utente
         if(action==="canceled"){ //cancellazione della richiesta
             if(String(request.sender)!==String(user._id)) throw new HttpError('Not Authorized to cancel the request',401)
@@ -37,12 +36,12 @@ async function actionRequest(req, res, next) {
 
         //gestione richieste portali
         if(request.type==="portal.addMember"){
-            if(action==="accepted"){const userFull=await  FullUser.findOne({basicCorrespondent: user._id});
+            if(action==="accepted"){const userFull=await  Author.findOne({basicCorrespondent: user._id});
                 if(!userFull){
-                    const fullUserByAlias=await FullUser.findOne({alias:aliasText})
+                    const fullUserByAlias=await Author.findOne({alias:aliasText})
                     if(fullUserByAlias)throw new HttpError("Alias already in use. Choose another alias.",409)
 
-                    await FullUser.create({
+                    await Author.create({
                         basicCorrespondent:user._id,
                         alias:aliasText,
                     })
@@ -64,9 +63,9 @@ async function actionRequest(req, res, next) {
                 portal.members.push(request.sender)
                 await portal.save()
 
-                const user2 = await BasicUser.findById(request.sender)
+                const user2 = await User.findById(request.sender)
                 if(request.alias){
-                    await FullUser.create({
+                    await Author.create({
                         basicCorrespondent: user2._id,
                         alias: request.alias,
                     })
@@ -81,7 +80,7 @@ async function actionRequest(req, res, next) {
 
             if(action==="accepted"){
                 const expo = await Exposition.findById(request.extra)
-                const receiverFull = await FullUser.findOne({basicCorrespondent: request.receiver})
+                const receiverFull = await Author.findOne({basicCorrespondent: request.receiver})
                 expo.authors.push({
                     role: 'co-author',
                     userId: receiverFull._id
@@ -103,32 +102,6 @@ async function actionRequest(req, res, next) {
                 const expo = await Exposition.findById(request.extra)
                 expo.portal=portal._id
                 await expo.save()
-            }
-        }
-
-        //gestione richieste gruppi
-        if(request.type==="group.addMember"){
-            if(action==="accepted"){
-                const group = await Group.findById(request.extra)
-                group.members.push(user._id)
-                await group.save()
-
-                const fullUser = await FullUser.findOne({basicCorrespondent: user._id})
-                fullUser.groups.push(group._id)
-                await fullUser.save()
-            }
-        } else if(request.type==="group.requestToAccess"){
-            const group = await Group.findById(request.extra)
-            //verifico che l'azione sia compiuta da un admin del gruppo
-            if(!group.admins.includes(user._id)) throw new HttpError('You are Not Authorized',401)
-
-            if(action==="accepted"){
-                group.members.push(request.sender)
-                await group.save()
-
-                const fullUser = await FullUser.findOne({basicCorrespondent: request.sender})
-                fullUser.groups.push(group._id)
-                await fullUser.save()
             }
         }
 
@@ -161,7 +134,7 @@ async function actionRequest(req, res, next) {
             }
 
             //creo la notifica visibile nel portale/gruppo se serve
-            if((request.type.includes("portal")||(request.type.includes("group")))&&action!=="rejected"){
+            if(request.type.includes("portal")&&action!=="rejected"){
                 notification = await Notification.findOne({receiver: request.extra})
                 if(notification){
                     notification.backlog.push(`${user.realName} has ${action} the request: ${request.content}`)
@@ -176,7 +149,7 @@ async function actionRequest(req, res, next) {
         }
 
         //per le tipologie che non sono gestite da questa funzione
-        if(request.type===("collaboration.addUser"||"collaboration.requestToPortal"||"portal.requestToLinkExposition"||"portal.delete"||"user.selfDeleteRequest"||"portal.create"||"group.create")&&action!=='canceled'){
+        if(request.type===("collaboration.addUser"||"portal.delete"||"user.selfDeleteRequest"||"portal.create")&&action!=='canceled'){
             throw new HttpError('This function does not accept this type of request',409)
         }
 
@@ -193,7 +166,7 @@ async function actionRequest(req, res, next) {
 async function viewRequests(req, res, next){
     const userId = req.user.id
     try{
-        const user = await BasicUser.findById(userId)
+        const user = await User.findById(userId)
 
         const sentRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
         const receivedRequests = await Request.find({receiver: user._id}) //verranno mostrati i pulsanti di Accept e Reject per la richiesta
@@ -212,8 +185,8 @@ async function viewNotifications(req, res, next){
         if(extraId){
             const notifications = await Notification.findOne({receiver: extraId})
             const portal = await Portal.findById(extraId)
-            const group = await Group.findById(extraId)
-            if((portal && portal.admins.includes(userId))||(group && group.admins.includes(userId))){
+
+            if((portal && portal.admins.includes(userId))){
                 //controllo se l'utente che ha fatto la richiesta è un admin del portale
                 return res.status(200).json({ok: true, data: notifications})
             } else {

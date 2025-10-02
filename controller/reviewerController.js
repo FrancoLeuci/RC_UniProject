@@ -1,6 +1,6 @@
 const Exposition = require('../model/Exposition')
-const BasicUser=require('../model/BasicUser')
-const FullUser = require('../model/FullUser')
+const User=require('../model/User')
+const Author = require('../model/Author')
 const Portal = require('../model/Portal')
 const Notification = require('../model/Notification')
 const mongoose=require("mongoose")
@@ -16,7 +16,7 @@ async function expoToReviewList(req,res,next){
     const reviewer=req.user.id;
 
     try{
-        const reviewerBasicAccount=await BasicUser.findById(reviewer).populate("portals")
+        const reviewerBasicAccount=await User.findById(reviewer).populate("portals")
         if(!reviewerBasicAccount){
             throw new HttpError("No user found. ",404)
         }
@@ -60,7 +60,7 @@ async function expoStatus(req, res, next){
 
         const notificationReviewer = await Notification.findOne({receiver: new mongoose.Types.ObjectId(reviewer)})
         const creator = expo.authors.find(a => a.role==="creator")
-        const creatorFullAccount=await FullUser.findById(creator.userId)
+        const creatorFullAccount=await Author.findById(creator.userId)
         const notificationCreator = await Notification.findOne({receiver: creatorFullAccount.basicCorrespondent})
         if(action==='rejected'){
             if(expo.published){
@@ -84,7 +84,7 @@ async function expoStatus(req, res, next){
         } else if(action==='accepted'){
 
             //chi segue il portale
-            const userToShowNotificationPortal=await BasicUser.find({followedPortals:expo.portal._id})
+            const userToShowNotificationPortal=await User.find({followedPortals:expo.portal._id})
             
 
             if(expo.published){
@@ -110,7 +110,7 @@ async function expoStatus(req, res, next){
             }))
             }else{
                 //se non era mai stata published
-                const userToShowNotificationCreator=await BasicUser.find({followedResearchers:creatorFullAccount.basicCorrespondent})
+                const userToShowNotificationCreator=await User.find({followedResearchers:creatorFullAccount.basicCorrespondent})
                 
                 await Promise.all(userToShowNotificationCreator.map(async user => {
                 let notification = await Notification.findOne({receiver: user._id})

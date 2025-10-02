@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const BasicUser=require("./BasicUser")
+const User=require("./User")
 //Uso una chiave per scindere i diversi tipi di media
 //funzione è model.discriminator(discriminatore, new mongoose.Schema({eventuali campi in più}, options))
 //verranno comunque salvati tutti in Media nel database. Quindi il modello finale è Media
@@ -21,7 +21,7 @@ const AbstractMediaSchema = new mongoose.Schema({
     size:{type:String,require:true},
     uploadedBy:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"BasicUser",
+        ref:"User",
         required:true,
     },
 

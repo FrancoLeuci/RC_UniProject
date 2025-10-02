@@ -1,5 +1,5 @@
 const mongoose=require("mongoose")
-const BasicUser=require("./BasicUser")
+const User=require("./User")
 
 
 const requestSchema = new mongoose.Schema({
@@ -13,20 +13,16 @@ const requestSchema = new mongoose.Schema({
             // portal
             "portal.addMember", //svolta dal portale verso un utente
             "portal.requestToAccess", //svolta dall'utente verso un portale
-            "portal.requestToLinkExposition", //dal creatore verso un portale
+            "portal.requestToLinkExposition", //dal creatore verso un portale per la pubblocazione
             "portal.delete",//da un admin verso un super-admin
             "portal.create", //utente chiede al superadmin di creare un portale
-            // group
-            "group.addMember", //svolta dal gruppo verso un utente
-            "group.requestToAccess", //svolta dall'utente verso il gruppo
-            "group.create", //membro del portale chiede ad una admin di creare un gruppo
             //users
             "user.selfDeleteRequest",
             "user.fullAccountRequest"
         ],
     },
 
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: BasicUser },
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: User },
     receiver: { type: mongoose.Schema.Types.ObjectId},
     content: { type: String },
     extra: {type: mongoose.Schema.Types.ObjectId},

@@ -6,6 +6,11 @@ const {pdf,Image}=require("../model/Media")
 
 
 const basicUserSchema = new mongoose.Schema({
+    disabled: {
+        type: Boolean,
+        default: false,
+    }, //se è true l'utente non vi può più accedere
+
     hide: {
         type: Boolean,
         default: false
@@ -115,7 +120,7 @@ const basicUserSchema = new mongoose.Schema({
     // ricercatori che l'utente segue
     followedResearchers: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "BasicUser"
+        ref: User
     }],
 
     followedPortals:[{
@@ -150,4 +155,4 @@ basicUserSchema.methods.comparePassword=async function(candidatePw){
     return await bcrypt.compare(candidatePw,this.password);
 }
 
-module.exports = mongoose.model('BasicUser', basicUserSchema);
+module.exports = mongoose.model('User', basicUserSchema);

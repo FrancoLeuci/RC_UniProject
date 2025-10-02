@@ -1,7 +1,6 @@
-const BasicUser = require("../../model/BasicUser");
-const FullUser = require("../../model/FullUser");
+const User = require("../../model/User");
+const Author = require("../../model/Author");
 const Request = require("../../model/Request");
-const Group = require("../../model/Group")
 const Exposition = require("../../model/Exposition");
 const Notification = require("../../model/Notification");
 
@@ -14,61 +13,6 @@ const Portal = require("../../model/Portal");
 //se il nome è già collegato a un utente già esistente (o email) chiederà se vuole aggiungerlo al portale
 //in questa maniera appariranno solo utenti con una mail verificata
 
-//pending requests
-
-/*TODO-domanda al prof: l'account creato dal portal_admin è già full o deve fare richiesta al super_admin?
-async function newUser(req,res,next) {
-    const portal=req.portal;
-    const {email, name, surname, password} = req.body;
-
-    try {
-
-        if (!email || !name || !surname || !password) {
-            throw new HttpError("Email, name, surname and password must be specified for new user creation.",400)
-            //return res.status(400).json({message: "Email, name, surname and password must be specified for new user creation."})
-        }
-
-        const realName = `${name} ${surname}`;
-
-        const emailUsed = await BasicUser.findOne({email: email})
-        if (emailUsed) {
-            throw new HttpError("An account associated with this email already exists.",409)
-            //return res.status(409).json({message: 'An account associated with this email already exists.'})
-        }
-
-        //TODO: dato che abbiamo chiarito col prof che il nome non è univoco, serve questo controllo?
-        //la mia idea è di fornire al front-end una lista di utenti con medesimo nome e se serve allora l'admin può inviare la richiesta con addToPortal
-
-
-        const alreadyUserByName = await BasicUser.find({realName: realName})
-        if(alreadyUserByName){
-            //lista completa utenti stesso nome
-            return res.status(409).json({message:"Users with the same name already exist. ",usersWithSameName:alreadyUserByName})
-        }
-       TODO: chiedere al prof se è possibile mostrare una lista di utenti con lo stesso nome per poi chiedere se l'utente vuole creare lo stesso o meno
-
-
-            const user = await BasicUser.create({
-                realName,
-                email,
-                password,
-                verified: true,
-                portals: portal._id //è creato da un admin del portale
-            })
-
-            portal.members.push(user._id)
-            await portal.save()
-
-            res.status(201).json({ok: true, message: "You created a new Account."})
-
-    } catch (err) {
-        next(err)
-        //console.error(err.message);
-        //res.status(500).json({error: "Internal Server Error"});
-    }
-}
- */
-
 //TODO: quando un membro diviene reviewer deve rimanere nella lista dei membri del portale?
 async function addToPortal(req,res,next){
     const portal=req.portal;
@@ -80,7 +24,7 @@ async function addToPortal(req,res,next){
             throw new HttpError("User already a member of the Portal",409)
             //return res.status(409).json({message: "User already a member of the Portal."});
         }else{
-            const newMember = await BasicUser.findById(newMemberId)
+            const newMember = await User.findById(newMemberId)
             if(!newMember){
                 throw new HttpError("User not found",404)
             }
@@ -118,7 +62,7 @@ async function removeFromPortal(req,res,next){
     const memberToRemoveId=req.params.id;
 
     try{
-        const userToRemove = await BasicUser.findById(memberToRemoveId)
+        const userToRemove = await User.findById(memberToRemoveId)
         if(!userToRemove) throw new HttpError('User not found',404)
 
         if(portal.members.find(memberId=>String(memberId)===memberToRemoveId)) {
@@ -150,7 +94,7 @@ async function removeFromPortal(req,res,next){
                 await portal.save();
             }
 
-            const userToRemoveFull = await FullUser.findOne({basicCorrespondent: memberToRemoveId}).populate("groups").populate("expositions")
+            const userToRemoveFull = await Author.findOne({basicCorrespondent: memberToRemoveId}).populate("groups").populate("expositions")
 
 
             if (userToRemoveFull) {
@@ -167,22 +111,7 @@ async function removeFromPortal(req,res,next){
                 }))
                 await portal.save()
 
-
-                userToRemoveFull.groups = userToRemoveFull.groups.filter(g => g.populate !== portal._id)
                 await userToRemoveFull.save()
-
-                const portalGroups = await Group.find({portal: portal._id})
-                if (portalGroups) {
-                    await Promise.all(portalGroups.map(async pg => {
-                        if(pg.members.find(userToRemoveFull._id)){
-                            pg.members.splice(pg.members.indexOf(userToRemoveFull._id), 1);
-                            await pg.save();
-                        }else if(pg.admins.find(userToRemoveFull._id)) {
-                            pg.admins.splice(pg.members.indexOf(userToRemoveFull._id), 1);
-                            await pg.save();
-                        }
-                    }))
-                }
             }
 
             //creo notifica che avvisa l'utente di essere stato rimosso dal portale
@@ -222,93 +151,10 @@ async function removeFromPortal(req,res,next){
 async function getPortalMembers(req, res, next){
     const portal = req.portal
     try{
-        const users = await Promise.all(portal.members.map(member => BasicUser.findById(member)))
+        const users = await Promise.all(portal.members.map(member => User.findById(member)))
 
         res.status(200).json({ok: true, data: users});
 
-    }catch(err){
-        next(err)
-    }
-}
-
-async function createGroup(req, res, next){
-    const portal = req.portal
-    //adminsId sono relativi ai basicUser
-    const {title, description, adminsId} = req.body;
-
-    try{
-        //controllo sul body
-        if(!title||!description||adminsId.length<1) throw new HttpError('All fields are required',400)
-        //TODO TEST
-        const adminsFullId = []
-        await Promise.all(adminsId.map(async adminId=>{
-            const user=await FullUser.findOne({basicCorrespondent: adminId});
-            if(!user)throw new HttpError("One of the users in the admin list has not been upgraded to Full User and can't be part of the group. Check the list and try again",404)
-            if(!portal.admins.includes(adminId)&&!portal.members.includes(adminId)) throw new HttpError("One of the users in the admin list is not a member/admin of the portal",400)
-            adminsFullId.push(user._id)
-        }))
-
-        const group = await Group.create({
-            title,
-            description,
-            portal: portal._id,
-            admins: [adminsFullId]
-        })
-
-        await Promise.all(adminsId.map(async admin => {
-            const fullUser = await FullUser.findOne({basicCorrespondent: admin})
-            fullUser.groups.push(group._id)
-            await fullUser.save()
-
-            const notification = await Notification.findOne({receiver: admin})
-            if(notification){
-                notification.backlog.push(`Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `)
-                await notification.save()
-            } else {
-                await Notification.create({
-                    receiver: admin,
-                    backlog: `Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `
-                })
-            }
-        }))
-
-        res.status(201).json({ok: true, message:'Group create successfully'})
-    }catch(err){
-        next(err)
-    }
-}
-
-async function deleteGroup(req, res, next){
-    const portal = req.portal
-    const groupId = req.params.grId;
-
-    try{
-        const group = await Group.findById(groupId)
-        if(!group) throw new HttpError("Group not found",404)
-
-        if(group.admins.length!==0){
-            await Promise.all(group.admins.map(async admin => {
-                const fullAccount = await FullUser.findOne({basicCorrespondent: admin})
-                const index = fullAccount.groups.findIndex(g => g.equals(group._id))
-                fullAccount.groups.splice(index,1)
-                await fullAccount.save()
-            }))
-        }
-        if(group.members.length!==0){
-            await Promise.all(group.members.map(async member => {
-                const fullAccount = await FullUser.findOne({basicCorrespondent: member})
-                const index = fullAccount.groups.findIndex(g => g.equals(group._id))
-                fullAccount.groups.splice(index,1)
-                await fullAccount.save()
-            }))
-        }
-
-        //elimino l'oggetto Notifica legata ad esso
-        await Notification.deleteOne({receiver: group._id})
-
-        await Group.findByIdAndDelete(groupId)
-
-        res.status(200).json({ok: true, message:'Group deleted successfully'})
     }catch(err){
         next(err)
     }
@@ -436,7 +282,7 @@ async function requestToRemovePortal(req,res,next){
     const adminId=req.user.id
     const portal=req.portal
     try{
-        const adminAccount=await BasicUser.findById(adminId)
+        const adminAccount=await User.findById(adminId)
         const existingRequest = await Request.findOne({
             type: 'portal.delete',
             extra: portal._id
@@ -446,7 +292,7 @@ async function requestToRemovePortal(req,res,next){
             throw new HttpError(`Request already made`, 409);
         }
 
-        const superAdmins=await BasicUser.find({role:"super-admin"})
+        const superAdmins=await User.find({role:"super-admin"})
         superAdmins.map(async sA=>{
             await Request.create({
                 type: 'portal.delete',
@@ -508,7 +354,7 @@ async function removeLinkedExposition(req,res,next){
         }
         await expo.save();
 
-        const adminBasic=await BasicUser.findById(req.user.id)
+        const adminBasic=await User.findById(req.user.id)
         //rimuovere expo da lista del portale
         portal.linkedExpositions.splice(portal.linkedExpositions.indexOf(expo._id),1)
 
@@ -531,76 +377,5 @@ async function removeLinkedExposition(req,res,next){
     }
 }
 
-//passa per il middleware
-async function createGroupResponse(req,res,next){
-    const reqId = req.params.rqId
-    const portal = req.portal;
-    const {action,rejectText} = req.body
-    try{
-        const request=await Request.findById(reqId)
-        if(!request) throw new HttpError("Request not found",404)
-        if(request.type!=="group.create") throw new HttpError('Wrong request type.',404)
-
-
-        if(action==='accepted'){
-            const group = await Group.create({
-                title:request.formFields.title,
-                description:request.formFields.description,
-                admins: request.formFields.adminList,
-                portal: request.receiver
-            })
-
-            await Promise.all(request.formFields.adminList.map(async admin => {
-                const fullUser = await FullUser.findOne({basicCorrespondent: admin})
-                fullUser.groups.push(group._id)
-                await fullUser.save()
-
-                const notification = await Notification.findOne({receiver: admin})
-                if(notification){
-                    notification.backlog.push(`Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `)
-                    await notification.save()
-                } else {
-                    await Notification.create({
-                        receiver: admin,
-                        backlog: `Portal-admin has created a new group named ${group.title} and has promoted you to group admin role. `
-                    })
-                }
-            }))
-        } else if(action==='rejected'){
-            const notification = await Notification.findOne({receiver: request.sender})
-            if(notification){
-                if(rejectText){
-                    notification.backlog.push(`Portal-admin has rejected your request with the following reason: ${rejectText}`)
-                    await notification.save()
-                } else {
-                    notification.backlog.push(`Portal-admin has rejected your request to create a group. `)
-                    await notification.save()
-                }
-
-            } else {
-                if(rejectText){
-                    await Notification.create({
-                        receiver: request.sender,
-                        backlog: `Super-admin has rejected your request with the following reason: ${rejectText} `
-                    })
-                } else {
-                    await Notification.create({
-                        receiver: request.sender,
-                        backlog: `Portal-admin has rejected your request to create a group. `
-                    })
-                }
-            }
-        } else {
-            throw new HttpError('Action no valid',400)
-        }
-
-        await Request.findByIdAndDelete(request._id)
-        res.status(201).send('Request responded successfully.')
-    }catch(err){
-        next(err)
-    }
-}
-
-
-module.exports = {addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
-    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition, createGroupResponse}
+module.exports = {addToPortal, removeFromPortal, getPortalMembers, addReviewer,
+    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition}

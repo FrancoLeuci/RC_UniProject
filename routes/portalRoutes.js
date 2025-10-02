@@ -1,8 +1,8 @@
 const express = require('express')
 
-const {edit, getAllInfo, getPortals, getGroups} = require('../controller/portals/portalController')
-const {addToPortal, removeFromPortal, getPortalMembers, createGroup, deleteGroup, addReviewer,
-    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition, createGroupResponse} = require('../controller/portals/adminController')
+const {edit, getAllInfo, getPortals} = require('../controller/portals/portalController')
+const {addToPortal, removeFromPortal, getPortalMembers, addReviewer,
+    removeReviewer, selectReviewer, requestToRemovePortal, removeLinkedExposition} = require('../controller/portals/adminController')
 
 const {verifyToken} = require('../middleware/authMiddleware')
 const {portalAdminCheck} = require('../middleware/p_adminMiddleware')
@@ -26,13 +26,5 @@ router.put('/:portal/removeReviewer/:id', verifyToken, portalAdminCheck, removeR
 router.post('/:portal/selectReviewer/:reqId', verifyToken, portalAdminCheck, selectReviewer)
 router.put('/:portal/removeExposition/:expo', verifyToken, portalAdminCheck, removeLinkedExposition)
 
-//gestione dei gruppi del portale
-router.post('/:portal/group/create', verifyToken, portalAdminCheck, createGroup)
-router.delete('/:portal/group/:grId/delete', verifyToken, portalAdminCheck, deleteGroup)
-router.get('/:portal/groups', verifyToken, getGroups)
-router.put('/:portal/groupRespond/:rqId',verifyToken,portalAdminCheck,createGroupResponse)
-
-//visualizzazione dei portali nel sito
-router.get('/', getPortals);
 
 module.exports = router

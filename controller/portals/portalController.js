@@ -1,7 +1,6 @@
 const Portal = require("../../model/Portal");
-const Group = require("../../model/Group");
-const FullUser = require("../../model/FullUser");
-const BasicUser = require('../../model/BasicUser')
+const Author = require("../../model/Author");
+const User = require('../../model/User')
 
 const {HttpError} = require("../../middleware/errorMiddleware");
 
@@ -107,28 +106,4 @@ async function getPortals(req, res, next){
     }
 }
 
-async function getGroups(req, res, next){
-    const userId = req.user.id;
-    const portalId = req.params.portal
-    try{
-        const portalGroups = await Group.find({portal: portalId})
-
-        const portal = await Portal.findById(portalId)
-        const isSuperAdmin = await BasicUser.findById(userId)
-        console.log(portal.admins.includes(userId))
-        if(portal.admins.includes(userId)||isSuperAdmin.role==='super-admin'){
-            console.log("Hello")
-            return res.status(200).json(portalGroups)
-        }
-
-        const userFull=await FullUser.findOne({basicCorrespondent: userId}).populate("groups")
-        if(!userFull) throw new HttpError('You are not a Full Account',401)
-        const userFullGroups=portalGroups.filter(group => userFull.groups.includes(group._id))
-        res.status(200).json(userFullGroups) //solo i gruppi del portale di cui il fulluser fa parte, se è vuoto frontend scrive che non stanno gruppi da mostrare :)
-
-    }catch(err){
-        next(err)
-    }
-}
-
-module.exports = {edit, getAllInfo, getPortals, getGroups}
+module.exports = {edit, getAllInfo, getPortals}
