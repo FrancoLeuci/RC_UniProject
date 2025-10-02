@@ -5,6 +5,7 @@ const pdfParse = require("pdf-parse");
 const fs=require("fs");
 const BasicUser = require("../model/BasicUser");
 const Portal = require("../model/Portal")
+const Set=require("../model/Set")
 
 const {HttpError} = require("../middleware/errorMiddleware");
 
@@ -225,8 +226,8 @@ async function filterMedia(req, res, next){
         const media = await Media.find({uploadedBy: userId})
 
         if(!media){
-            throw new HttpError("User don't have media",404)
-            //return res.status(404).json({message: "User don't have media"})
+            throw new HttpError("User doesn't have media to show.",404)
+            //return res.status(404).json({message: "User doesn't have media"})
         }
 
         console.log(media, search)
@@ -284,21 +285,27 @@ async function removeMedia(req,res,next){
     const mediaId=req.params.mediaId;
     const userId=req.user.id;
     if(!mediaId){
-        throw new HttpError("No media to remove in the request params",400)
+        throw new HttpError("No media to remove in the request params.",400)
         //return res.status(400).json({ok:false, message:"No media to remove in the request params."})
     }
 
     try{
         const mediaToRemove=await Media.findById(mediaId)
         if(!mediaToRemove){
-            throw new HttpError("File not found",404)
+            throw new HttpError("File not found.",404)
             //return res.status(404).json({ok:false,message:"File not found."});
         }
 
         if(String(mediaToRemove.uploadedBy)===userId){
-            //eliminazione dal set
+            //eliminazione dai media del db
             await Media.findByIdAndDelete(mediaId);
-            return res.status(200).json({ok:true,message:"File cancellato da tutti i set e dal server. "});
+            //eliminazione dai set - TODO da testare
+            const setList=await Set.updateMany(
+                {mediaList:mediaToRemove._id},
+                {$pull:{mediaList:mediaToRemove._id}}
+        
+            )
+            return res.status(200).json({ok:true,message:"File deleted succesfully."});
         }
 
         throw new HttpError("Not Authorized. You can only delete the files that you have uploaded",401)
