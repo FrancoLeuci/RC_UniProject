@@ -146,8 +146,9 @@ async function removeFiles(req, res, next){
 }
 
 async function getSet(req,res,next){
-    const setId=req.params.setId;
+    const {setId,page}=req.params;
     const userId=req.user.id;
+    const limit=10;
     try{
         const setToShow=await Set.findById(setId);
         if(!setToShow){
@@ -163,7 +164,7 @@ async function getSet(req,res,next){
         const isSuperAdmin = await User.findById(userId)
 
         if(istheCreator||hasPermission||isSuperAdmin.role==='super-admin'){
-            const mediaToShow=await Promise.all(setToShow.mediaList.map(async(mediaId)=>await Media.findById(mediaId)))
+            const mediaToShow=await Media.find({_id:{$in:setToShow.mediaList}}).skip((page-1)*limit).limit(limit)
             return res.json({ok:true,setMedias:mediaToShow})
         }
 
@@ -212,25 +213,20 @@ async function deleteSet(req,res,next){
 
 async function mySetRepository(req,res,next){
     const userId = req.user.id
+    const page=req.params.page
+    const limit=7;
     try{
 
-        let mySets = await Set.find({})
-        let setsSharedWithMe = []
+        let mySets = await Set.find({
+            //tutti i set il quale creatore è l'utente oppure l'utente appare tra gli altri utenti con permessi
+            $or: [
+                { creator: userId },
+                { "otherUsersPermissions.user": userId }
+            ]}).skip((page-1)*limit).limit(limit)
+
 
         console.log(mySets)
-
-        mySets=mySets.map(set => {
-            console.log(set)
-            if(String(set.creator) === userId){
-                return set._id
-            } else if(set.otherUsersPermissions.some(obj=>String(obj.user)===userId)){
-                setsSharedWithMe.push(set._id)
-                return null
-            }
-        })
-        mySets=mySets.filter(set=>set!==null);
-
-        res.status(200).json({ok: true, mySets, setsSharedWithMe})
+        res.status(200).json({ok: true, mySets})
     }catch(err){
         next(err)
         //console.log(err.message)

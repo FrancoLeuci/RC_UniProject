@@ -61,7 +61,7 @@ const basicUserSchema = new mongoose.Schema({
 
     portals: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: Portal
+        ref: 'Portal'
     }],
 
     role: {
@@ -109,23 +109,23 @@ const basicUserSchema = new mongoose.Schema({
 
     curriculumVitae: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: pdf
+        ref: 'pdf'
     }, //one to one cv
 
     profilePicture:{
         type:mongoose.Schema.Types.ObjectId,
-        ref: Image
+        ref: 'Image'
     },
 
     // ricercatori che l'utente segue
     followedResearchers: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: User
+        ref: 'User'
     }],
 
     followedPortals:[{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Portal"
+        ref: 'Portal'
     }],
 
     favoritesExposition: [{

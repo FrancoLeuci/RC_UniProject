@@ -1,5 +1,5 @@
 const mongoose=require("mongoose")
-const basicUser=require("./User")
+const User=require("./User")
 const portals=require("./Portal")
 const Media=require("./Media")
 
@@ -15,7 +15,7 @@ const setSchema=new mongoose.Schema({
 
     creator:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:basicUser
+        ref:User
     },
 
     visibility:{
@@ -28,7 +28,7 @@ const setSchema=new mongoose.Schema({
     otherUsersPermissions:[{
         user:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:basicUser,
+            ref:User,
         },
 
         canEditSet:{

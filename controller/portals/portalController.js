@@ -97,8 +97,9 @@ async function getAllInfo(req, res, next){
 }
 
 async function getPortals(req, res, next){
+    const page = req.params.page
     try{
-        const portals = await Portal.find({})
+        const portals = await Portal.find({}).skip((page-1)*7).limit(7)
 
         res.status(200).json({ok: true, portals})
     }catch(err){

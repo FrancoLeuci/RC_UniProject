@@ -4,8 +4,8 @@ const {verifyToken} = require('../middleware/authMiddleware')
 
 const router = express.Router();
 
-router.get('/', verifyToken, viewRequests);
+router.get('/:page', verifyToken, viewRequests);
 router.put('/:reqId', verifyToken, actionRequest);
-router.get('/notification', verifyToken, viewNotifications);
+router.get('/notification/:page', verifyToken, viewNotifications);
 
 module.exports = router

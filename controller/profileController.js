@@ -127,8 +127,13 @@ async function editPassword(req, res, next){
 }
 
 async function getAllUsers(req, res, next){
+    //dal link in base al numero arrivatogli, mostrerà determinati utenti
+    //nel frontend, ogni click aumenta "page" nel link
+    const page = req.params.page;
     try{
-        const users = await User.find({verified: true})
+        const users = await User.find({verified: true}).skip((page-1)*7).limit(7)
+
+        console.log(users)
 
         res.status(200).json({ok: true, users})
     }catch(err){
@@ -174,8 +179,10 @@ async function getUserView(req, res, next){
 }
 
 async function getUserWithPublic(req, res, next){
+    const page = req.params.page
+
     try{
-        const fullUsers = await Author.find({"expositions.0":{$exists:true}})
+        const fullUsers = await Author.find({"expositions.0":{$exists:true}}).skip((page-1)*7).limit(7)
         let basicUsers = await Promise.all(
             fullUsers.map(async user => await User.findById(user.basicCorrespondent))
         )

@@ -366,8 +366,9 @@ async function editExposition(req,res,next){
 }
 //pensata come funzione che mostra le esposizioni pubbliche in una sorta di Home
 async function getPublicExpositions(req,res,next){
+    const page = req.params.page
     try{
-        const expos=await Exposition.find({shareStatus:"public"})
+        const expos=await Exposition.find({shareStatus:"public"}).skip((page-1)*7).limit(7)
         //nella response solo la lista, ziopera
         res.status(200).json({expos})
     }catch(err){
@@ -379,8 +380,9 @@ async function getPublicExpositions(req,res,next){
 async function getPortalExpositions(req,res,next){
     const userId=req.user.id
     const portalId=req.params.portal
+    const page = req.params.page
     try{
-        const portal=await Portal.findById(portalId).populate("linkedExpositions")
+        const portal=await Portal.findById(portalId).populate("linkedExpositions").skip((page-1)*7).limit(7)
         if(!portal)throw new HttpError("Portal not found.",404)
         const userBasicAccount=await User.findById(userId)
         if(!userBasicAccount)throw new HttpError("User not found.",404)

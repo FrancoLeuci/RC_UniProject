@@ -13,12 +13,13 @@ const router = express.Router()
 router.get('/:portal', verifyToken, portalAdminCheck, getAllInfo)
 router.put('/:portal/edit', verifyToken, portalAdminCheck, edit)
 router.put('/:portal/delete', verifyToken, portalAdminCheck, requestToRemovePortal)
+router.get('/:page',getPortals)
 
 //gestione degli utenti del portale
 //router.post('/:portal/members/create', verifyToken, portalAdminCheck, newUser)
 router.put('/:portal/members/:id', verifyToken, portalAdminCheck, addToPortal)
 router.delete('/:portal/member/:id', verifyToken, portalAdminCheck, removeFromPortal)
-router.get('/:portal/members', verifyToken, portalAdminCheck, getPortalMembers)
+router.get('/:portal/members/:page', verifyToken, portalAdminCheck, getPortalMembers)
 
 //gestione dei reviewer del portale
 router.put('/:portal/addReviewer/:id', verifyToken, portalAdminCheck, addReviewer)

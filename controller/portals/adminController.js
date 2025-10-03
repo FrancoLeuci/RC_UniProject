@@ -150,8 +150,9 @@ async function removeFromPortal(req,res,next){
 
 async function getPortalMembers(req, res, next){
     const portal = req.portal
+    const page = req.paramas.page
     try{
-        const users = await Promise.all(portal.members.map(member => User.findById(member)))
+        const users = await Promise.all(portal.members.map(member => User.findById(member))).skip((page-1)*7).limit(7)
 
         res.status(200).json({ok: true, data: users});
 

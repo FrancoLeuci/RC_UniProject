@@ -165,13 +165,17 @@ async function actionRequest(req, res, next) {
 //Visualizzazione delle richieste
 async function viewRequests(req, res, next){
     const userId = req.user.id
+    const page = req.paramas.page
+    const limit=7;
     try{
         const user = await User.findById(userId)
+        const requests = await Request.find({
+            $or: [
+                {sender: user._id},
+                {receiver:user._id}
+            ]}).skip((page-1)*limit).limit(limit) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
 
-        const sentRequests = await Request.find({sender: user._id}) //verrà mostrato solo il pulsante di Cancel/Delete della richiesta
-        const receivedRequests = await Request.find({receiver: user._id}) //verranno mostrati i pulsanti di Accept e Reject per la richiesta
-
-        res.status(200).json({ok: true, sent_requests: sentRequests, rec_requests: receivedRequests})
+        res.status(200).json({ok: true, sent_requests: requests})
     }catch(err){
         next(err)
     }
@@ -181,10 +185,12 @@ async function viewRequests(req, res, next){
 async function viewNotifications(req, res, next){
     const userId = req.user.id
     const {extraId} = req.body
+    const page = req.paramas.page
+
     try{
         if(extraId){
-            const notifications = await Notification.findOne({receiver: extraId})
-            const portal = await Portal.findById(extraId)
+            const notifications = await Notification.findOne({receiver: extraId}).skip((page-1)*7).limit(7)
+            const portal = await Portal.findById(extraId).skip((page-1)*7).limit(7)
 
             if((portal && portal.admins.includes(userId))){
                 //controllo se l'utente che ha fatto la richiesta è un admin del portale

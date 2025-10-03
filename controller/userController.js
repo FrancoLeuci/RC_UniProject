@@ -371,12 +371,13 @@ async function requestToBecomePortalMember(req, res, next){
 
 async function findUserByName(req,res,next){
     const {text} = req.body;
+    const page=req.params.page
+    const limit=7;
+    //const limit=7 il numero massimo di ogni cosa
     try{
         if(!text) throw new HttpError("Enter a text",400);
 
-        const allUsers = await User.find({});
-
-        const validUsers = allUsers.filter(user => user.realName.includes(text))
+        const validUsers = await User.find({realName:text}).skip((page-1)*limit).limit(limit)
 
         res.status(200).json({ok: true, data: validUsers})
     }catch(err){
@@ -563,8 +564,6 @@ async function leavePortal(req,res,next){
                         portal.linkedExpositions=portal.linkedExpositions.filter(eL=>!eL._id.equals(e._id))
                     }
                 }))
-            }
-
             await portal.save()
             res.status(200).send("You left the portal.")
         } else {throw new HttpError(`You are not a member/admin of ${portal.name} portal.`,400)}

@@ -20,4 +20,6 @@ Da fare:
 chiedere se superadmin può vedere/fare tutto (tranne pubblicare expositions)
 Nel caso in get Groups, get Portals, get Expositions (pubblicate)
 
+findUserById
+getSet
 

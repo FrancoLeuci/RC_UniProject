@@ -5,7 +5,7 @@ const {verifyToken} = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.get('/list', verifyToken, expoToReviewList)
+router.get('/list/:page', verifyToken, expoToReviewList)
 router.put('/:expoId', verifyToken, expoStatus)
 
 module.exports = router;

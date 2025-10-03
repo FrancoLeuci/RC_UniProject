@@ -27,9 +27,9 @@ router.put('/portalRequest/:portalId', verifyToken, requestToBecomePortalMember)
 router.put('/create/portalRequest', verifyToken, requestToCreatePortal)
 
 // presi da pageRoutes
-router.get('/users', getAllUsers);
+router.get('/users/:page', getAllUsers);
 router.get("/profile/:id", getUserView);
-router.get('/users/publicObject=1', getUserWithPublic);
+router.get('/users/publicObject=1/:page', getUserWithPublic);
 router.get('/users/search', findUserByName)
 
 module.exports = router;

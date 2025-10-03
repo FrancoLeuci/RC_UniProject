@@ -10,33 +10,16 @@ const {HttpError} = require("../middleware/errorMiddleware");
 //passa da verifyToken
 async function getFollowedUsers(req,res,next){
     const userId=req.user.id;
-
+    const page=req.params.page;
     try{
-        const userAccount= await User.findById(userId);
-
-        const userMap=await Promise.all(userAccount.followedResearchers.map(async (researcher,i)=> {
-            const foundUser=await User.findById(researcher.followedUserId)
-            if(!foundUser){
-                //potrebbe essere tolto
-                //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
-                userAccount.followedResearchers.splice(i,1);
-                //save
-                await userAccount.save();
-                return({
-                    user:0,
-                    flags:[]
-                })
-            }else{
-                return ({
-                    user:foundUser,
-                    flags:researcher.options
-                })
+        const userAccount= await User.findById(userId).populate({
+            path:"followedReasearchers",
+            options:{
+                skip:(page-1)*7,
+                limit:7
             }
-        }
-        ))
-        const validFollowedUserMap=userMap.filter(followedUser=>followedUser.user!==0)
-
-        res.status(200).json({ok:true,validFollowedUserMap})
+        });
+        res.status(200).json({ok:true,userAccount})
     }catch(err){
         next(err)
         //console.log("Error during user fetch in DB.")
@@ -46,33 +29,13 @@ async function getFollowedUsers(req,res,next){
 
 async function getFollowedPortals(req,res,next){
     const userId=req.user.id;
-
+    const page=req.params.page
     try{
-        const userAccount= await User.findById(userId);
-
-        const portalMap=await Promise.all(userAccount.followedPortals.map(async (portal,i)=> {
-            const foundPortal=await Portal.findById(portal.followedPortalId)
-            if(!foundPortal){
-                //rimuovo dalla lista di utenti che segue l'utente, il ricercatore che non ha più un profilo nel sito
-                userAccount.followedPortals.splice(i,1);
-                //save
-                await userAccount.save();
-                return({
-                    portal:0,
-                    flags:[]
-                })
-            }else{
-                return ({
-                    portal:foundPortal,
-                    flags:portal.options
-                })
-            }
-        }
-        ))
-
-        const validFollowedPortalMap=portalMap.filter(followedPortal=>followedPortal.portal!==0)
-
-        res.status(200).json({ok:true,validFollowedPortalMap})
+        const userAccount= await User.findByI(userId).select("followedPortals");
+        //trova tutti i portali che hanno un id uguale a uno degli id in userAccount.followedPortals
+        const portals=await Portal.find({_id:{$in:userAccount.followedPortals}}).skip((page-1)*7).limit(7)
+        
+        res.status(200).json({ok:true,portals})
     }catch(err){
         next(err)
         //console.log("Error during user fetch in DB.")

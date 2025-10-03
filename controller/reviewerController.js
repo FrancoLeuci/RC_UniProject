@@ -14,6 +14,7 @@ const {HttpError} = require('../middleware/errorMiddleware')
 //esiste una pagina a parte dove se l'utente è un reviewer di uno o più portali vede tutte le richieste in essa
 async function expoToReviewList(req,res,next){
     const reviewer=req.user.id;
+    const page = req.params.page
 
     try{
         const reviewerBasicAccount=await User.findById(reviewer).populate("portals")
@@ -34,7 +35,7 @@ async function expoToReviewList(req,res,next){
         }
         
         const expositions = await Promise.all(portalsReviewer.map(async p=>{
-            const a=await Exposition.find({portal:p._id,reviewer:{flag:true,user:reviewerBasicAccount._id}})
+            const a=await Exposition.find({portal:p._id,reviewer:{flag:true,user:reviewerBasicAccount._id}}).skip((page-1)*7).limit(7)
             return a
         }))
 

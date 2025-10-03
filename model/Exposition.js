@@ -1,8 +1,8 @@
 const mongoose=require("mongoose");
-const FullUser=require("./Author")
+const Author=require("./Author")
 const Media=require("./Media")
 const Portal=require("./Portal")
-const BasicUser=require("./User")
+const User=require("./User")
 
 const ExpositionSchema=new mongoose.Schema({
     title:{
@@ -32,7 +32,7 @@ const ExpositionSchema=new mongoose.Schema({
         },
         userId:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:"FullUser"
+            ref:"Author"
         }
     }],
 
@@ -67,7 +67,7 @@ const ExpositionSchema=new mongoose.Schema({
         },
         user:{
             type:mongoose.Schema.Types.ObjectId,
-            ref:"BasicUser"
+            ref:"User"
         }
     },
 

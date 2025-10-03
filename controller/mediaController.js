@@ -266,10 +266,11 @@ async function filterMedia(req, res, next){
 
 async function getMedia(req, res, next){
     const userId = req.user.id
+    const page = req.params.page
 
     try{
         const user = await User.findById(userId)
-        let media = await Media.find({uploadedBy: userId})
+        let media = await Media.find({uploadedBy: userId}).skip((page-1)*7).limit(7)
         //quando si vuole confrontare 2 ObjectId di mongoose è necessario utilizzare il metodo .equals() al posto dei classici operatori
         media=media.filter(m => !m._id.equals(user.curriculumVitae) && !m._id.equals(user.profilePicture))
         res.status(200).json({ok: true, data: media})
